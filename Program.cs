@@ -7,7 +7,10 @@ public class Program{
 	public const string sqlServer = @"server=localhost;userid=hotelServer;password=1234;database=hotelServer";
 	public static LightHttpServer server = new LightHttpServer(); // https://github.com/javidsho/LightHTTP.git
 	public static bool keepAlive = true;
+	public static DateTime serverStartTime = DateTime.Now;
+	
 	public static string ConcatAllTypes(object obj){
+		serverStartTime = DateTime.Now;
 		// name
 		string concar = $"{obj}\n---------------\n";
 		// class variables
@@ -59,11 +62,15 @@ public class Program{
 				// print current status
 			context.Response.ContentEncoding = Encoding.UTF8;
 			context.Response.ContentType = "text/html";
+			//TimeSpan upTime = DateTime.Now - serverStartTime;
 			var bytes = Encoding.UTF8.GetBytes($"<html><body>"+
-					"MySQL version : {con.ServerVersion}<br>"+
+					$"MySQL version : {con.ServerVersion}<br>"+
+					$"time at request : {DateTime.Now.ToString("HH:mm:ss")}<br>" + 
+					//$"up-time : {upTime}s<br>"+
+					$"up-time : {DateTime.Now - serverStartTime}s<br>"+
 					"Current status : Running<br><br>"+
 					// and some links
-					"<a href=\"/stop\">stopper</a><br>"+
+					"<a href=\"/stop\">Stop Server</a><br>"+
 					"<a href=\"https://github.com/javidsho/LightHTTP\">LightHttp</a></body></html>");
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
