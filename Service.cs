@@ -2,6 +2,14 @@ using MySql.Data.MySqlClient;
 using LightHTTP;
 using System.Text;
 using System.ComponentModel;
+using LightHTTP.Handling;
+using LightHTTP.Internal;
+using System.Net.Sockets;  
+using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 
 public class Servicer{
 
@@ -84,6 +92,20 @@ public class Servicer{
 		}
 		return outStr.Trim();
 	}
+	
+        public static int GetOpenPort()
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            try
+            {
+                listener.Start();
+                return (listener.LocalEndpoint as IPEndPoint)!.Port;
+            }
+            finally
+            {
+                listener.Stop();
+            }
+        }
 	public Servicer(){
 		// MySql connection
 		con = new MySqlConnection(sqlServerString);
@@ -92,7 +114,12 @@ public class Servicer{
 			throw new Exception("could not connect");
 		// initialise Web-Server
 		server = new LightHttpServer();
-		webServerUrl = server.AddAvailableLocalPrefix();
+		
+		var port = Servicer.GetOpenPort();
+		var prefix = $"http://10.1.1.77:{port}/";
+		server.Listener.Prefixes.Add(prefix);
+		webServerUrl = prefix;
+		//webServerUrl = server.AddAvailableLocalPrefix();
 		Console.WriteLine(webServerUrl);
 
 		// get existing talbes
