@@ -34,3 +34,7 @@ body{
 	margin-left:15px;
 	margin-top: 60px; /* Add a top margin to avoid content overlay */
 }
+
+a.right {
+	float:right;
+}

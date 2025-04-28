@@ -113,6 +113,7 @@ public class Program{
 		service.server.HandlesStaticFile("/book", "web-files/book.html");
 		service.server.HandlesStaticFile("/location", "web-files/location.html");
 		service.server.HandlesStaticFile("/contact", "web-files/contact.html");
+		service.server.HandlesStaticFile("/login", "web-files/login.html");
 
 		//
 		service.Start();
