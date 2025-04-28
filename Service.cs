@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Runtime.InteropServices;
 
 public class Servicer{
 
@@ -166,6 +167,10 @@ public class Servicer{
 
 	public void Start(){
 		// start the web-server
+
+		bool isWindows = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+		if (isWindows)
+			ShellHelper.RegisterHttp(webServerUrl);
 		server.Start();
 	}
 	public void Stop(){
