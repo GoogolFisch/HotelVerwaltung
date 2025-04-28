@@ -25,13 +25,20 @@ public class Servicer{
 	}
 	public bool EnsureTableFormat(string tableName,string formatStr)
 	{
+		MySqlCommand cmd;
 		tableName = Servicer.Sanitise(tableName);
+		string sql = $"DESCRIBE {tableName}";
 		if(!CheckTableExists(tableName)){
-			Console.WriteLine("No Table!");
+			Console.WriteLine("No Table - Creating one!");
+			string[] param = formatStr.Split("|");
+			param[0] += " PRIMARY KEY AUTO_INCREMENT";
+			sql = $"CREATE TABLE {tableName}({String.Join(',',param)});";
+			cmd = new MySqlCommand(sql,con);
+			cmd.ExecuteNonQuery();
+			cmd.Dispose();
 			return false;
 		}
-		string sql = $"DESCRIBE {tableName}";
-		var cmd = new MySqlCommand(sql, con);
+		cmd = new MySqlCommand(sql, con);
 
 		MySqlDataReader rdr = cmd.ExecuteReader();
 		string tabLayout = "";
@@ -106,6 +113,23 @@ public class Servicer{
                 listener.Stop();
             }
         }
+	public static string GetLocalIPAddress()
+	{
+		var host = Dns.GetHostEntry(Dns.GetHostName());
+		string hostName = "";
+		foreach (var ip in host.AddressList)
+		{
+			if (ip.AddressFamily == AddressFamily.InterNetwork){
+				hostName = ip.ToString();
+				Console.WriteLine(hostName);
+			}
+			if(hostName.StartsWith("10"))
+				return hostName;
+		}
+		if(hostName != "");
+			return hostName;
+		throw new Exception("No network adapters with an IPv4 address in the system!");
+	}
 	public Servicer(){
 		// MySql connection
 		con = new MySqlConnection(sqlServerString);
@@ -116,7 +140,7 @@ public class Servicer{
 		server = new LightHttpServer();
 		
 		var port = Servicer.GetOpenPort();
-		var prefix = $"http://10.1.1.77:{port}/";
+		var prefix = $"http://{Servicer.GetLocalIPAddress()}:{port}/";
 		server.Listener.Prefixes.Add(prefix);
 		webServerUrl = prefix;
 		//webServerUrl = server.AddAvailableLocalPrefix();
