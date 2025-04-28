@@ -52,7 +52,9 @@ public class Program{
 
 		Console.WriteLine(service.webServerUrl);
 
-		service.EnsureTableFormat("Kunden","Kunden_ID int(11)|VorName varchar(20)|MittelName varchar(20)|NachName varchar(20)|GeborenAm date|"); // idk
+		service.EnsureTableFormat("Kunden","Kunden_ID int(11)|VorName varchar(20)|MittelName varchar(20)|NachName varchar(20)|ErstellungsDatum date|GeborenAm date|");
+		service.EnsureTableFormat("Raum","Raum_ID int(11)|Kosten decimal(5,2)|anzBetten int(2)|");
+		service.EnsureTableFormat("Buchungen","Buchungs_ID int(11)|Kunden_ID int(11)|BuchungsDatum date|");
 		// register everything!
 		// register funny logical stuff
 		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),async (context,cancellationToken) => {

@@ -33,6 +33,12 @@ public class Servicer{
 			List<string> param = new List<string>(formatStr.Split("|"));
 			param[0] += " PRIMARY KEY AUTO_INCREMENT";
 			param.RemoveAt(param.Count - 1);
+			for(int i = 1;i < param.Count;i++){
+				param[i] += " NOT NULL";
+				if(param[i].Contains("Datum")){
+					param[i] += " DEFAULT CURRENT_TIMESTAMP";
+				}
+			}
 			sql = $"CREATE TABLE {tableName}({String.Join(',',param)});";
 			Console.WriteLine(sql);
 			cmd = new MySqlCommand(sql,con);
@@ -47,7 +53,6 @@ public class Servicer{
 		while (rdr.Read())
 		{
 			tabLayout += $"{rdr.GetString(0)} {rdr.GetString(1)}|";
-			Console.WriteLine("{0} {1}", rdr.GetString(0),rdr.GetString(1));
 		}
 		rdr.Dispose();
 		cmd.Dispose();
@@ -115,22 +120,18 @@ public class Servicer{
                 listener.Stop();
             }
         }
-	public static string GetLocalIPAddress()
+	public static void GetAllIpStrings(int port)
 	{
 		var host = Dns.GetHostEntry(Dns.GetHostName());
-		string hostName = "";
+		//string hostName = "";
 		foreach (var ip in host.AddressList)
 		{
 			if (ip.AddressFamily == AddressFamily.InterNetwork){
-				hostName = ip.ToString();
-				Console.WriteLine(hostName);
+				//hostName = ip.ToString();
+				Console.WriteLine($"http://{ip.ToString()}:{port}");
 			}
-			if(hostName.StartsWith("10"))
-				return hostName;
 		}
-		if(hostName != "");
-			return hostName;
-		throw new Exception("No network adapters with an IPv4 address in the system!");
+		//throw new Exception("No network adapters with an IPv4 address in the system!");
 	}
 	public Servicer(){
 		// MySql connection
@@ -142,11 +143,11 @@ public class Servicer{
 		server = new LightHttpServer();
 		
 		var port = Servicer.GetOpenPort();
-		var prefix = $"http://{Servicer.GetLocalIPAddress()}:{port}/";
+		var prefix = $"http://*:{port}/";
+		Servicer.GetAllIpStrings(port);
 		server.Listener.Prefixes.Add(prefix);
 		webServerUrl = prefix;
 		//webServerUrl = server.AddAvailableLocalPrefix();
-		Console.WriteLine(webServerUrl);
 
 		// get existing talbes
 		var cmd = new MySqlCommand();
