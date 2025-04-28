@@ -1,4 +1,4 @@
-using MySql.Data.MySqlClient;
+//using MySql.Data.MySqlClient;
 using LightHTTP;
 using System.Text;
 using System.ComponentModel;
@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Runtime.InteropServices;
 
 public class Servicer{
 
@@ -17,7 +18,7 @@ public class Servicer{
 	public LightHttpServer server;// = new LightHttpServer(); // https://github.com/javidsho/LightHTTP.git
 	//public bool shouldKillAll;// = false;
 	//public DateTime serverStartTime;// = DateTime.Now;
-	public MySqlConnection con;
+	//public MySqlConnection con;
 	public string webServerUrl {private set; get;}
 	public List<string> existingTables;
 	public bool CheckTableExists(string tableName){
@@ -25,6 +26,7 @@ public class Servicer{
 	}
 	public bool EnsureTableFormat(string tableName,string formatStr)
 	{
+		/*
 		MySqlCommand cmd;
 		tableName = Servicer.Sanitise(tableName);
 		string sql = $"DESCRIBE {tableName}";
@@ -65,9 +67,9 @@ public class Servicer{
 		Console.WriteLine("But got");
 		Console.WriteLine(tabLayout);
 
-
+		*/
 		return false;
-	}
+	}/*
 	public static string GetTableData(System.Data.DataTable table)
 	{
 		string outing = "";
@@ -85,7 +87,7 @@ public class Servicer{
 			outing += "<br>\n";
 		}
 		return outing;
-	}
+	}*/
 	// remove all potentially dangerous characters from an string!
 	public static string Sanitise(string inStr){
 		/*
@@ -135,10 +137,10 @@ public class Servicer{
 	}
 	public Servicer(){
 		// MySql connection
-		con = new MySqlConnection(sqlServerString);
-		con.Open();
-		if(con is null)
-			throw new Exception("could not connect");
+		//con = new MySqlConnection(sqlServerString);
+		//con.Open();
+		//if(con is null)
+		//	throw new Exception("could not connect");
 		// initialise Web-Server
 		server = new LightHttpServer();
 		
@@ -150,28 +152,33 @@ public class Servicer{
 		//webServerUrl = server.AddAvailableLocalPrefix();
 
 		// get existing talbes
-		var cmd = new MySqlCommand();
-		cmd.Connection = con;
-		cmd.CommandText = "SHOW TABLES";
-		MySqlDataReader rdr = cmd.ExecuteReader();
-		existingTables = new List<string>();
-		while(rdr.Read()){
-			existingTables.Add(rdr.GetString(0).ToLower());
-		}
-		cmd.Dispose();
-		rdr.Dispose();
+		//var cmd = new MySqlCommand();
+		//cmd.Connection = con;
+		//cmd.CommandText = "SHOW TABLES";
+		//MySqlDataReader rdr = cmd.ExecuteReader();
+		//existingTables = new List<string>();
+		//while(rdr.Read()){
+		//	existingTables.Add(rdr.GetString(0).ToLower());
+		//}
+		//cmd.Dispose();
+		//rdr.Dispose();
 		// ???
 		//serverStartTime = DateTime.Now;
 	}
 
 	public void Start(){
-		// start the web-server
-		server.Start();
+        bool isWindows = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+		if (isWindows)
+		{
+			ShellHelper.RegisterHttp(webServerUrl);
+        }
+        // start the web-server
+        server.Start();
 	}
 	public void Stop(){
 		// kill Webserver
 		server.Dispose();
 		// kill MySql
-		con.Close();
+		//con.Close();
 	}
 }

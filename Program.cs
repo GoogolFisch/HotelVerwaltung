@@ -68,7 +68,7 @@ public class Program{
 		service.server.Handles(str => (str == "/tables" || str.StartsWith("/tables/")),async (context,cancellationToken) => {
 			context.Response.ContentEncoding = Encoding.UTF8;
 			context.Response.ContentType = "text/plain";
-			string data;
+			string data = "";
 			string tblName = Servicer.Sanitise(context.Request.RawUrl.Substring(7));
 			Console.WriteLine($"<{tblName}>");
 			if(tblName == ""){
@@ -78,14 +78,14 @@ public class Program{
 				}
 			}
 			else{
-				data = $"Table: {tblName}\n";
-				var schema = service.con.GetSchema(tblName);
-				data += ConcatAllTypes(schema);
-				/*foreach (System.Data.DataColumn col in schema.Columns)
-				{
-					data += $"{col.ColumnName} - ";
-				}*/
-				data += Servicer.GetTableData(schema);
+				//data = $"Table: {tblName}\n";
+				//var schema = service.con.GetSchema(tblName);
+				//data += ConcatAllTypes(schema);
+				///*foreach (System.Data.DataColumn col in schema.Columns)
+				//{
+				//	data += $"{col.ColumnName} - ";
+				//}*/
+				//data += Servicer.GetTableData(schema);
 			}
 			byte[] bytes = Encoding.UTF8.GetBytes(data);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
@@ -96,7 +96,7 @@ public class Program{
 			context.Response.ContentType = "text/html";
 			//TimeSpan upTime = DateTime.Now - serverStartTime;
 			var bytes = Encoding.UTF8.GetBytes($"<html><body>"+
-					$"MySQL version : {service.con.ServerVersion}<br>"+
+					//$"MySQL version : {service.con.ServerVersion}<br>"+
 					$"time at request : {DateTime.Now.ToString("HH:mm:ss")}<br>" + 
 					//$"up-time : {upTime}s<br>"+
 					$"up-time : {DateTime.Now - serverStartTime}s<br>"+
