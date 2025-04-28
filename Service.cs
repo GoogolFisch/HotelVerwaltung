@@ -21,7 +21,7 @@ public class Servicer{
 	public string webServerUrl {private set; get;}
 	public List<string> existingTables;
 	public bool CheckTableExists(string tableName){
-		return existingTables.Contains(tableName);
+		return existingTables.Contains(tableName.ToLower());
 	}
 	public bool EnsureTableFormat(string tableName,string formatStr)
 	{
@@ -155,7 +155,7 @@ public class Servicer{
 		MySqlDataReader rdr = cmd.ExecuteReader();
 		existingTables = new List<string>();
 		while(rdr.Read()){
-			existingTables.Add(rdr.GetString(0));
+			existingTables.Add(rdr.GetString(0).ToLower());
 		}
 		cmd.Dispose();
 		rdr.Dispose();
