@@ -30,9 +30,11 @@ public class Servicer{
 		string sql = $"DESCRIBE {tableName}";
 		if(!CheckTableExists(tableName)){
 			Console.WriteLine("No Table - Creating one!");
-			string[] param = formatStr.Split("|");
+			List<string> param = new List<string>(formatStr.Split("|"));
 			param[0] += " PRIMARY KEY AUTO_INCREMENT";
+			param.RemoveAt(param.Count - 1);
 			sql = $"CREATE TABLE {tableName}({String.Join(',',param)});";
+			Console.WriteLine(sql);
 			cmd = new MySqlCommand(sql,con);
 			cmd.ExecuteNonQuery();
 			cmd.Dispose();
