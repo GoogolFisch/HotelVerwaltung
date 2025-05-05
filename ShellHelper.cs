@@ -59,6 +59,7 @@ public static class ShellHelper
 			StartInfo = new ProcessStartInfo
 			{
 				FileName = "netsh",
+				Verb = "runas",
 				Arguments = cmd,
 				RedirectStandardOutput = true,
 				RedirectStandardError = true,
