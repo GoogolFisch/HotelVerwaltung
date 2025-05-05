@@ -137,14 +137,25 @@ public class Servicer{
 	public Servicer(){
 		// MySql connection
 		con = new MySqlConnection(sqlServerString);
-		con.Open();
+		try{
+			con.Open();
+		}
+		catch (MySqlException e){
+			if(e. Message.Equals("Unable to connect to any of the specified MySQL hosts")){
+				Console.Error.WriteLine("You need to start mysql under XAMPP");
+			}
+			else
+				Console.Error.WriteLine(e.ToString());
+			Environment.Exit(1);
+		}
 		if(con is null)
 			throw new Exception("could not connect");
 		// initialise Web-Server
 		server = new LightHttpServer();
 		
+		// in future move to port 80 or 443
 		var port = Servicer.GetOpenPort();
-		var prefix = $"http://*:{port}/";
+		var prefix = $"http://*:{port}/"; // connect to any ip
 		Servicer.GetAllIpStrings(port);
 		server.Listener.Prefixes.Add(prefix);
 		webServerUrl = prefix;
