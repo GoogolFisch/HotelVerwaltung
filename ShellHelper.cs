@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.Versioning;
 using System.Diagnostics;
 //https://jackma.com/2019/04/20/execute-a-bash-script-via-c-net-core/
 public static class ShellHelper
@@ -49,6 +50,7 @@ public static class ShellHelper
 
       return source.Task;
     }
+    [SupportedOSPlatform("windows")]
     public static Task<int> RegisterHttp(string prefix)
 	{
 		var source = new TaskCompletionSource<int>();
@@ -90,7 +92,7 @@ public static class ShellHelper
 		}
 		catch (Exception e)
 		{
-            Console.WriteLine($"{cmd} has failed");
+            Console.WriteLine($"{cmd} has failed: {e.ToString()}");
 			//logger.LogError(e, "Command {} failed", cmd);
 		}
 		return source.Task;

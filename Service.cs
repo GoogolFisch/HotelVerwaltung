@@ -1,11 +1,11 @@
 using MySql.Data.MySqlClient;
 using LightHTTP;
-using System.Text;
 using System.ComponentModel;
 using LightHTTP.Handling;
 using LightHTTP.Internal;
-using System.Net.Sockets;  
 using System;
+using System.IO;
+using System.Web;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -31,6 +31,7 @@ public class Servicer{
 		string sql = $"DESCRIBE {tableName}";
 		if(!CheckTableExists(tableName)){
 			Console.WriteLine("No Table - Creating one!");
+			/*
 			List<string> param = new List<string>(formatStr.Split("|"));
 			param[0] += " PRIMARY KEY AUTO_INCREMENT";
 			param.RemoveAt(param.Count - 1);
@@ -41,6 +42,8 @@ public class Servicer{
 				}
 			}
 			sql = $"CREATE TABLE {tableName}({String.Join(',',param)});";
+			*/
+			sql = $"CREATE TABLE {tableName}({formatStr});";
 			Console.WriteLine(sql);
 			cmd = new MySqlCommand(sql,con);
 			cmd.ExecuteNonQuery();
@@ -51,17 +54,39 @@ public class Servicer{
 
 		MySqlDataReader rdr = cmd.ExecuteReader();
 		string tabLayout = "";
+		bool isFirst = true;
 		while (rdr.Read())
 		{
-			tabLayout += $"{rdr.GetString(0)} {rdr.GetString(1)}|";
+			if(!isFirst)
+				tabLayout += ",";
+			else{
+				//Console.WriteLine(Program.ConcatAllTypes(rdr));
+				//Console.WriteLine(rdr.FieldCount);
+				isFirst = false;
+			}
+			tabLayout += $"{rdr.GetString(0)} {rdr.GetString(1)}";
+			//tabLayout += $" {rdr.GetString(4)} {rdr.GetString(5)}";
+			if(rdr.GetString(3) == "PRI")
+				tabLayout += " PRIMARY KEY";
+			else{
+				if(rdr.GetString(3) != "")
+					tabLayout += $" {rdr.GetString(3)}";
+				if(rdr.GetString(2) == "NO")
+					tabLayout += " NOT NULL";
+			}
+			/*if(rdr.GetString(1) == "date"){
+				tabLayout += " DEFAULT CURRENT_TIMESTAMP";
+			}*/
+			for(int i = 5; i < rdr.FieldCount;i++)
+				tabLayout += $" {rdr.GetString(i)}";
 		}
 		rdr.Dispose();
 		cmd.Dispose();
 
-		if(formatStr == tabLayout)
+		
+		if(formatStr.Trim().ToLower() == tabLayout.Trim().ToLower())
 			return true;
-		Console.WriteLine("The expected format did't match the current one");
-		Console.WriteLine("The expected format:");
+		Console.WriteLine($"The expected format: {tableName}");
 		Console.WriteLine(formatStr);
 		Console.WriteLine("But got");
 		Console.WriteLine(tabLayout);
@@ -174,6 +199,33 @@ public class Servicer{
 		rdr.Dispose();
 		// ???
 		//serverStartTime = DateTime.Now;
+	}
+	public static String GetInputStream(HttpListenerRequest req){
+		if(!req.HasEntityBody)
+			return "";
+		Stream body = req.InputStream;
+		StreamReader reader = new StreamReader(body,req.ContentEncoding);
+		String str = reader.ReadToEnd();
+		reader.Close();
+
+		body.Close();
+		body.Dispose();
+		return str;
+	}
+	public static Dictionary<String,String> GetHiddenParameters(HttpListenerRequest req){
+		Dictionary<String,String> lookup = new Dictionary<String,String>();
+		String data = GetInputStream(req);
+		
+		// The ParseQueryString method will parse the query string and return a NameValueCollection
+		var paramsCollection = HttpUtility.ParseQueryString(data);
+
+		// The foreach loop will iterate over the params collection and print the key and value for each param
+		foreach (var key in paramsCollection.AllKeys)
+		{
+			//Console.WriteLine($"Key: {key} => Value: {paramsCollection[key]}");
+			lookup.Add(key,paramsCollection[key]);
+		}
+		return lookup;
 	}
 
 	public void Start(){

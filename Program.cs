@@ -52,9 +52,10 @@ public class Program{
 
 		Console.WriteLine(service.webServerUrl);
 
-		service.EnsureTableFormat("Kunden","Kunden_ID int(11)|VorName varchar(20)|MittelName varchar(20)|NachName varchar(20)|ErstellungsDatum date|GeborenAm date|");
-		service.EnsureTableFormat("Raum","Raum_ID int(11)|Kosten decimal(5,2)|anzBetten int(2)|");
-		service.EnsureTableFormat("Buchungen","Buchungs_ID int(11)|Kunden_ID int(11)|BuchungsDatum date|");
+		service.EnsureTableFormat("Kunden","Kunden_ID int(11) PRIMARY KEY auto_increment,VorName varchar(20) NOT NULL ,NachName varchar(20) NOT NULL ,ErstellungsDatum date NOT NULL ,GeborenAm date NOT NULL");
+		service.EnsureTableFormat("Raum","Raum_ID int(11) PRIMARY KEY auto_increment,Kosten decimal(5,2) NOT NULL ,anzBetten int(2) NOT NULL ,RaumTyp varchar(2) NOT NULL ,ZimmerNum int(11) NOT NULL");
+		service.EnsureTableFormat("Buchungen","BuchungsID int(11) PRIMARY KEY auto_increment,Kunden_ID int(11) NOT NULL ,BuchungsDatum date NOT NULL ,BuchungStart date NOT NULL ,BuchungEnde date NOT NULL ");
+		service.EnsureTableFormat("ZimmerBuchung","Buchungs_ID int(11) PRIMARY KEY ,Raum_ID int(11) PRIMARY KEY");
 		// register everything!
 		// register funny logical stuff
 		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),async (context,cancellationToken) => {
@@ -63,6 +64,8 @@ public class Program{
 			context.Response.ContentType = "text/plain";
 			context.Request.GetClientCertificate(); // this has to be done!
 			var bytes = Encoding.UTF8.GetBytes(ConcatAllTypes(context.Request));
+			//var bytes = Encoding.UTF8.GetBytes(ConcatAllTypes(context.Request.QueryString));
+			Servicer.GetHiddenParameters(context.Request);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
 		service.server.Handles(str => (str == "/tables" || str.StartsWith("/tables/")),async (context,cancellationToken) => {
@@ -113,7 +116,8 @@ public class Program{
 		service.server.HandlesStaticFile("/book", "web-files/book.html");
 		service.server.HandlesStaticFile("/location", "web-files/location.html");
 		service.server.HandlesStaticFile("/contact", "web-files/contact.html");
-		service.server.HandlesStaticFile("/login", "web-files/login.html");
+		service.server.HandlesStaticFile("/login", "web-files/login.html"); // move to handler!
+		service.server.HandlesStaticFile("/register", "web-files/login.html"); // move to handler!
 
 		//
 		service.Start();
