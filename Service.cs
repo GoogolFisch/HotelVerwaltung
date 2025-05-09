@@ -55,6 +55,7 @@ public class Servicer{
 		MySqlDataReader rdr = cmd.ExecuteReader();
 		string tabLayout = "";
 		bool isFirst = true;
+		List<string> primaryList = new List<string>();
 		while (rdr.Read())
 		{
 			if(!isFirst)
@@ -67,7 +68,7 @@ public class Servicer{
 			tabLayout += $"{rdr.GetString(0)} {rdr.GetString(1)}";
 			//tabLayout += $" {rdr.GetString(4)} {rdr.GetString(5)}";
 			if(rdr.GetString(3) == "PRI")
-				tabLayout += " PRIMARY KEY";
+				primaryList.Add(rdr.GetString(0));
 			else{
 				if(rdr.GetString(3) != "")
 					tabLayout += $" {rdr.GetString(3)}";
@@ -79,6 +80,17 @@ public class Servicer{
 			}*/
 			for(int i = 5; i < rdr.FieldCount;i++)
 				tabLayout += $" {rdr.GetString(i)}";
+		}
+		// populate primary keys
+		if(primaryList.Count > 0){
+			tabLayout += ",PRIMARY KEY (";
+			isFirst = true;
+			foreach(string keys in primaryList){
+				if(!isFirst)tabLayout += ",";
+				tabLayout += $"{keys}";
+				isFirst = false;
+			}
+			tabLayout += ")";
 		}
 		rdr.Dispose();
 		cmd.Dispose();
@@ -241,5 +253,16 @@ public class Servicer{
 		server.Dispose();
 		// kill MySql
 		con.Close();
+	}
+	public bool TryRegisterUser(string fName, string lName, string pwd){
+		fName = Servicer.Sanitise(fName);
+		lName = Servicer.Sanitise(lName);
+		string sql = $"SELECT * FROM Kunden WHERE VorName = \"{fName}\" AND NachName = \"{lName}\"";
+		MySqlCommand cmd = new MySqlCommand(sql,con);
+		MySqlDataReader pref = cmd.ExecuteReader();
+		Console.WriteLine(Program.ConcatAllTypes(pref));
+		pref.Dispose();
+		pref.Close();
+		return false;
 	}
 }

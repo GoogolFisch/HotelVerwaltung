@@ -52,10 +52,10 @@ public class Program{
 
 		Console.WriteLine(service.webServerUrl);
 
-		service.EnsureTableFormat("Kunden","Kunden_ID int(11) PRIMARY KEY auto_increment,VorName varchar(20) NOT NULL ,NachName varchar(20) NOT NULL ,ErstellungsDatum date NOT NULL ,GeborenAm date NOT NULL");
-		service.EnsureTableFormat("Raum","Raum_ID int(11) PRIMARY KEY auto_increment,Kosten decimal(5,2) NOT NULL ,anzBetten int(2) NOT NULL ,RaumTyp varchar(2) NOT NULL ,ZimmerNum int(11) NOT NULL");
-		service.EnsureTableFormat("Buchungen","BuchungsID int(11) PRIMARY KEY auto_increment,Kunden_ID int(11) NOT NULL ,BuchungsDatum date NOT NULL ,BuchungStart date NOT NULL ,BuchungEnde date NOT NULL ");
-		service.EnsureTableFormat("ZimmerBuchung","Buchungs_ID int(11) PRIMARY KEY ,Raum_ID int(11) PRIMARY KEY");
+		service.EnsureTableFormat("Kunden","Kunden_ID int(11) auto_increment,VorName varchar(20) NOT NULL ,NachName varchar(20) NOT NULL ,ErstellungsDatum date NOT NULL ,GeborenAm date NOT NULL ,PRIMARY KEY (Kunden_ID)");
+		service.EnsureTableFormat("Raum","Raum_ID int(11) auto_increment,Kosten decimal(5,2) NOT NULL ,anzBetten int(2) NOT NULL ,RaumTyp varchar(2) NOT NULL ,ZimmerNum int(11) NOT NULL ,PRIMARY KEY (Raum_ID)");
+		service.EnsureTableFormat("Buchungen","BuchungsID int(11) auto_increment,Kunden_ID int(11) NOT NULL ,BuchungsDatum date NOT NULL ,BuchungStart date NOT NULL ,BuchungEnde date NOT NULL ,PRIMARY KEY (BuchungsID)");
+		service.EnsureTableFormat("ZimmerBuchung","Buchungs_ID int(11) ,Raum_ID int(11) ,PRIMARY KEY (Buchungs_ID,Raum_ID)");
 		// register everything!
 		// register funny logical stuff
 		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),async (context,cancellationToken) => {
@@ -63,9 +63,14 @@ public class Program{
 			context.Response.ContentEncoding = Encoding.UTF8;
 			context.Response.ContentType = "text/plain";
 			context.Request.GetClientCertificate(); // this has to be done!
-			var bytes = Encoding.UTF8.GetBytes(ConcatAllTypes(context.Request));
+			string data = ConcatAllTypes(context.Request);
+			data += "-------\n";
+			// get info from "form"-elements
+			var hidParam = Servicer.GetHiddenParameters(context.Request);
+			foreach(var key in hidParam.Keys)
+				data += $"{key} -> {hidParam[key]}\n";
+			var bytes = Encoding.UTF8.GetBytes(data);
 			//var bytes = Encoding.UTF8.GetBytes(ConcatAllTypes(context.Request.QueryString));
-			Servicer.GetHiddenParameters(context.Request);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
 		service.server.Handles(str => (str == "/tables" || str.StartsWith("/tables/")),async (context,cancellationToken) => {
@@ -83,7 +88,9 @@ public class Program{
 			else{
 				data = $"Table: {tblName}\n";
 				var schema = service.con.GetSchema(tblName);
+				Console.WriteLine(data);
 				data += ConcatAllTypes(schema);
+				Console.WriteLine(data);
 				/*foreach (System.Data.DataColumn col in schema.Columns)
 				{
 					data += $"{col.ColumnName} - ";
@@ -107,6 +114,16 @@ public class Program{
 					// and some links
 					"<a href=\"/stop\">Stop Server</a><br>"+
 					"<a href=\"https://github.com/javidsho/LightHTTP\">LightHttp</a></body></html>");
+			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+		});
+		service.server.HandlesPath("/try-register", async (context, cancellationToken) => {
+			var hidParam = Servicer.GetHiddenParameters(context.Request);
+			service.TryRegisterUser( hidParam["fname"],
+						 hidParam["nname"],
+						 hidParam["pwd"]  );
+			
+			context.Response.ContentType = "text/html";
+			var bytes = Encoding.UTF8.GetBytes("");
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
 		// register local-files
