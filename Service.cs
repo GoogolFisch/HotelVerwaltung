@@ -254,15 +254,40 @@ public class Servicer{
 		// kill MySql
 		con.Close();
 	}
-	public bool TryRegisterUser(string fName, string lName, string pwd){
+	public bool TryRegisterUser(Dictionary<string,string> lookup){
+		string fName = lookup["fname"];
+		string lName = lookup["lname"];
+		string eMail = lookup["mail"];
+		string birth = lookup["birth"];
+		string pwd = lookup["pwd"];
 		fName = Servicer.Sanitise(fName);
 		lName = Servicer.Sanitise(lName);
 		string sql = $"SELECT * FROM Kunden WHERE VorName = \"{fName}\" AND NachName = \"{lName}\"";
+		//string sql = $"SELECT * FROM Kunden WHERE mail = \"{eMail}\"";
 		MySqlCommand cmd = new MySqlCommand(sql,con);
 		MySqlDataReader pref = cmd.ExecuteReader();
 		Console.WriteLine(Program.ConcatAllTypes(pref));
+		bool gotContent = pref.HasRows;
+		// close this before!
 		pref.Dispose();
-		pref.Close();
-		return false;
+		pref.Close(); 
+		// 
+		if(!gotContent){
+			Console.WriteLine($"{fName} {lName} {eMail} {birth} {pwd}");
+			cmd.CommandText = "INSERT INTO Kunden" + 
+				"(VorName,NachName,ErstellungsDatum,GeborenAm) VALUES (" +
+				$"\"{fName}\",\"{lName}\"," + 
+				$"\"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}\"," + 
+				$"\"{birth}\"" + 
+					")";
+			try{
+				cmd.ExecuteNonQuery();
+			Console.WriteLine($"{cmd.CommandText}");
+			}catch(Exception e){
+				Console.WriteLine(e.ToString());
+			}
+		}
+		con.Dispose();
+		return !gotContent; // true -> succ | false -> fail
 	}
 }

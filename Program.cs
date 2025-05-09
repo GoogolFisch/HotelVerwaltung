@@ -52,7 +52,7 @@ public class Program{
 
 		Console.WriteLine(service.webServerUrl);
 
-		service.EnsureTableFormat("Kunden","Kunden_ID int(11) auto_increment,VorName varchar(20) NOT NULL ,NachName varchar(20) NOT NULL ,ErstellungsDatum date NOT NULL ,GeborenAm date NOT NULL ,PRIMARY KEY (Kunden_ID)");
+		service.EnsureTableFormat("Kunden","Kunden_ID int(11) auto_increment,VorName varchar(20) NOT NULL ,NachName varchar(20) NOT NULL ,ErstellungsDatum datetime NOT NULL ,GeborenAm date NOT NULL ,PRIMARY KEY (Kunden_ID)");
 		service.EnsureTableFormat("Raum","Raum_ID int(11) auto_increment,Kosten decimal(5,2) NOT NULL ,anzBetten int(2) NOT NULL ,RaumTyp varchar(2) NOT NULL ,ZimmerNum int(11) NOT NULL ,PRIMARY KEY (Raum_ID)");
 		service.EnsureTableFormat("Buchungen","BuchungsID int(11) auto_increment,Kunden_ID int(11) NOT NULL ,BuchungsDatum date NOT NULL ,BuchungStart date NOT NULL ,BuchungEnde date NOT NULL ,PRIMARY KEY (BuchungsID)");
 		service.EnsureTableFormat("ZimmerBuchung","Buchungs_ID int(11) ,Raum_ID int(11) ,PRIMARY KEY (Buchungs_ID,Raum_ID)");
@@ -118,12 +118,12 @@ public class Program{
 		});
 		service.server.HandlesPath("/try-register", async (context, cancellationToken) => {
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
-			service.TryRegisterUser( hidParam["fname"],
-						 hidParam["nname"],
-						 hidParam["pwd"]  );
+			if(service.TryRegisterUser( hidParam )){
+				Console.WriteLine("yay");
+			}
 			
 			context.Response.ContentType = "text/html";
-			var bytes = Encoding.UTF8.GetBytes("");
+			var bytes = Encoding.UTF8.GetBytes("hello world");
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
 		// register local-files
@@ -134,7 +134,7 @@ public class Program{
 		service.server.HandlesStaticFile("/location", "web-files/location.html");
 		service.server.HandlesStaticFile("/contact", "web-files/contact.html");
 		service.server.HandlesStaticFile("/login", "web-files/login.html"); // move to handler!
-		service.server.HandlesStaticFile("/register", "web-files/login.html"); // move to handler!
+		service.server.HandlesStaticFile("/register", "web-files/register.html"); // move to handler!
 
 		//
 		service.Start();
