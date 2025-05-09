@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 
 public class Servicer{
@@ -126,6 +127,9 @@ public class Servicer{
 	}
 	// remove all potentially dangerous characters from an string!
 	public static string Sanitise(string inStr){
+		return Sanitise(inStr,0);
+	}
+	public static string Sanitise(string inStr,int strict){
 		/*
 		string outStr = inStr;
 		foreach(char nogoChar in "/'.\"\\$"){
@@ -135,6 +139,19 @@ public class Servicer{
 		foreach(char inChar in inStr){
 			if(inChar == ' ')
 				outStr += inChar;
+			else if(strict > 0){
+				if(inChar == '!')
+					outStr += inChar;
+				else if(inChar >= '#' && inChar <= '&')
+					outStr += inChar;
+				else if(inChar >= '(' && inChar <= '_')
+					outStr += inChar;
+				else if(inChar >= 'a' && inChar <= '~')
+					outStr += inChar;
+				// idk what can happen here!
+				else if(strict > 1 && inChar >= (char)0x80)
+					outStr += inChar; 
+			}
 			else if(inChar >= '0' && inChar <= '9')
 				outStr += inChar;
 			else if(inChar >= 'A' && inChar <= 'Z')
@@ -254,16 +271,20 @@ public class Servicer{
 		// kill MySql
 		con.Close();
 	}
+	public string EncodePassword(string input){
+		SHA256 sha256 = SHA256.Create();
+		byte[] data = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
+		sha256.Dispose();
+		return Convert.ToBase64String(data,0,32);
+	}
 	public bool TryRegisterUser(Dictionary<string,string> lookup){
-		string fName = lookup["fname"];
-		string lName = lookup["lname"];
-		string eMail = lookup["mail"];
-		string birth = lookup["birth"];
-		string pwd = lookup["pwd"];
-		fName = Servicer.Sanitise(fName);
-		lName = Servicer.Sanitise(lName);
-		string sql = $"SELECT * FROM Kunden WHERE VorName = \"{fName}\" AND NachName = \"{lName}\"";
-		//string sql = $"SELECT * FROM Kunden WHERE mail = \"{eMail}\"";
+		string fName = Sanitise(lookup["fname"]);
+		string lName = Sanitise(lookup["lname"]);
+		string eMail = Sanitise(lookup["mail"],1);
+		string birth = Sanitise(lookup["birth"],1);
+		string pwd = EncodePassword(lookup["pwd"]);
+		//string sql = $"SELECT * FROM Kunden WHERE VorName = \"{fName}\" AND NachName = \"{lName}\"";
+		string sql = $"SELECT * FROM Kunden WHERE eMail = \"{eMail}\"";
 		MySqlCommand cmd = new MySqlCommand(sql,con);
 		MySqlDataReader pref = cmd.ExecuteReader();
 		Console.WriteLine(Program.ConcatAllTypes(pref));
@@ -273,19 +294,18 @@ public class Servicer{
 		pref.Close(); 
 		// 
 		if(!gotContent){
-			Console.WriteLine($"{fName} {lName} {eMail} {birth} {pwd}");
 			cmd.CommandText = "INSERT INTO Kunden" + 
-				"(VorName,NachName,ErstellungsDatum,GeborenAm) VALUES (" +
-				$"\"{fName}\",\"{lName}\"," + 
+				"(VorName,NachName,ErstellungsDatum," +
+				"eMail,GeborenAm,password) VALUES (" +
+				$"\"{fName}\"," + 
+				$"\"{lName}\"," + 
 				$"\"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}\"," + 
-				$"\"{birth}\"" + 
+				$"\"{eMail}\"," + 
+				$"\"{birth}\"," + 
+				$"\"{pwd}\"" + 
 					")";
-			try{
-				cmd.ExecuteNonQuery();
 			Console.WriteLine($"{cmd.CommandText}");
-			}catch(Exception e){
-				Console.WriteLine(e.ToString());
-			}
+			cmd.ExecuteNonQuery();
 		}
 		con.Dispose();
 		return !gotContent; // true -> succ | false -> fail

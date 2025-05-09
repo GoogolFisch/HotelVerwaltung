@@ -52,7 +52,7 @@ public class Program{
 
 		Console.WriteLine(service.webServerUrl);
 
-		service.EnsureTableFormat("Kunden","Kunden_ID int(11) auto_increment,VorName varchar(20) NOT NULL ,NachName varchar(20) NOT NULL ,ErstellungsDatum datetime NOT NULL ,GeborenAm date NOT NULL ,PRIMARY KEY (Kunden_ID)");
+		service.EnsureTableFormat("Kunden","Kunden_ID int(11) auto_increment,VorName varchar(20) NOT NULL ,NachName varchar(20) NOT NULL ,eMail varchar(40) NOT NULL ,ErstellungsDatum datetime NOT NULL ,GeborenAm date NOT NULL ,password char(64) NOT NULL ,PRIMARY KEY (Kunden_ID)");
 		service.EnsureTableFormat("Raum","Raum_ID int(11) auto_increment,Kosten decimal(5,2) NOT NULL ,anzBetten int(2) NOT NULL ,RaumTyp varchar(2) NOT NULL ,ZimmerNum int(11) NOT NULL ,PRIMARY KEY (Raum_ID)");
 		service.EnsureTableFormat("Buchungen","BuchungsID int(11) auto_increment,Kunden_ID int(11) NOT NULL ,BuchungsDatum date NOT NULL ,BuchungStart date NOT NULL ,BuchungEnde date NOT NULL ,PRIMARY KEY (BuchungsID)");
 		service.EnsureTableFormat("ZimmerBuchung","Buchungs_ID int(11) ,Raum_ID int(11) ,PRIMARY KEY (Buchungs_ID,Raum_ID)");
@@ -118,12 +118,25 @@ public class Program{
 		});
 		service.server.HandlesPath("/try-register", async (context, cancellationToken) => {
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
-			if(service.TryRegisterUser( hidParam )){
-				Console.WriteLine("yay");
+			string data = "<!DOCTYPE html><html><body>";
+			try{
+				if(service.TryRegisterUser( hidParam )){
+					data += "login success full for";
+					data += $"{hidParam["fname"]} ";
+					data += $"{hidParam["lname"]}";
+				}
+				else{
+					data += "some one already hash such an account";
+				}
+			}catch(Exception e){
+				Console.WriteLine(e.ToString());
 			}
 			
+			data += "</body>" + 
+			"<script>setTimeout(\"window.location.href = '/'\",5000);</script>"+
+			"</html>";
 			context.Response.ContentType = "text/html";
-			var bytes = Encoding.UTF8.GetBytes("hello world");
+			var bytes = Encoding.UTF8.GetBytes(data);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
 		// register local-files
