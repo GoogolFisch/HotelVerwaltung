@@ -277,17 +277,22 @@ public class Servicer{
 		sha256.Dispose();
 		return Convert.ToBase64String(data,0,32);
 	}
-	public bool TryRegisterUser(Dictionary<string,string> lookup){
+	public int TryRegisterUser(Dictionary<string,string> lookup){
 		string fName = Sanitise(lookup["fname"]);
 		string lName = Sanitise(lookup["lname"]);
 		string eMail = Sanitise(lookup["mail"],1);
 		string birth = Sanitise(lookup["birth"],1);
 		string pwd = EncodePassword(lookup["pwd"]);
+		if(fName is null || fName == "") return 2;
+		if(lName is null || lName == "") return 2;
+		if(eMail is null || eMail == "") return 2;
+		if(birth is null || eMail == "") return 2;
+		if(pwd is null || eMail == "") return 2;
 		//string sql = $"SELECT * FROM Kunden WHERE VorName = \"{fName}\" AND NachName = \"{lName}\"";
 		string sql = $"SELECT * FROM Kunden WHERE eMail = \"{eMail}\"";
 		MySqlCommand cmd = new MySqlCommand(sql,con);
 		MySqlDataReader pref = cmd.ExecuteReader();
-		Console.WriteLine(Program.ConcatAllTypes(pref));
+		//Console.WriteLine(Program.ConcatAllTypes(pref));
 		bool gotContent = pref.HasRows;
 		// close this before!
 		pref.Dispose();
@@ -304,10 +309,31 @@ public class Servicer{
 				$"\"{birth}\"," + 
 				$"\"{pwd}\"" + 
 					")";
-			Console.WriteLine($"{cmd.CommandText}");
+			//Console.WriteLine($"{cmd.CommandText}");
 			cmd.ExecuteNonQuery();
 		}
-		con.Dispose();
-		return !gotContent; // true -> succ | false -> fail
+		cmd.Dispose();
+		return gotContent ? 1 : 0; // 0 -> succ | 1 -> fail
+	}
+	public bool TryLogin(Dictionary<string,string> lookup){
+		string eMail = Sanitise(lookup["mail"],1);
+		string pwd = EncodePassword(lookup["pwd"]);
+		if(eMail is null || eMail == "") return false;
+		if(pwd is null || eMail == "") return false;
+		string sql = $"SELECT password FROM Kunden WHERE eMail = \"{eMail}\"";
+		MySqlCommand cmd = new MySqlCommand(sql,con);
+		MySqlDataReader pref = cmd.ExecuteReader();
+		bool correct = false;
+		string foundPwd = "";
+		if(pref.HasRows){
+			pref.Read();
+			foundPwd = pref.GetString(0);
+			if(foundPwd == pwd)
+				correct = true;
+		}
+		pref.Dispose();
+		pref.Close(); 
+		cmd.Dispose();
+		return correct;
 	}
 }

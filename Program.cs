@@ -64,7 +64,13 @@ public class Program{
 			context.Response.ContentType = "text/plain";
 			context.Request.GetClientCertificate(); // this has to be done!
 			string data = ConcatAllTypes(context.Request);
-			data += "-------\n";
+			data += "===========\n";
+			data += ConcatAllTypes(context.Request.Cookies);
+			data += "??\n";
+			foreach(var cookie in context.Request.Cookies){
+				data += $"{cookie}\n";
+			}
+			data += "===========\n";
 			// get info from "form"-elements
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
 			foreach(var key in hidParam.Keys)
@@ -119,23 +125,46 @@ public class Program{
 		service.server.HandlesPath("/try-register", async (context, cancellationToken) => {
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
 			string data = "<!DOCTYPE html><html><body>";
-			try{
-				if(service.TryRegisterUser( hidParam )){
-					data += "login success full for";
-					data += $"{hidParam["fname"]} ";
-					data += $"{hidParam["lname"]}";
-				}
-				else{
-					data += "some one already hash such an account";
-				}
-			}catch(Exception e){
-				Console.WriteLine(e.ToString());
+			int retVal = service.TryRegisterUser(hidParam);
+			if(retVal == 0){
+				data += "registering successfull for:<br>";
+				data += $"{hidParam["fname"]} ";
+				data += $"{hidParam["lname"]}";
+				data +=	"<script>setTimeout("+
+				        "\"window.location.href='/'\",2500);</script>";
+			} else if(retVal == 1){
+				data += "some one already hash such an account";
+				data +=	"<script>setTimeout("+
+				        "\"window.location.href='/register'\",2500"+
+					");</script>";
+			}else if(retVal == 2){
+				data += "Not correct format!";
+				data +=	"<script>setTimeout("+
+				        "\"window.location.href='/register'\",2500"+
+					");</script>";
 			}
-			
-			data += "</body>" + 
-			"<script>setTimeout(\"window.location.href = '/'\",5000);</script>"+
-			"</html>";
+			data += "</body></html>";
 			context.Response.ContentType = "text/html";
+			var bytes = Encoding.UTF8.GetBytes(data);
+			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+		});
+		service.server.HandlesPath("/try-login", async (context, cancellationToken) => {
+			var hidParam = Servicer.GetHiddenParameters(context.Request);
+			string data = "<!DOCTYPE html><html><body>";
+			bool retVal = service.TryLogin(hidParam);
+			if(retVal){
+				data += "success!";
+				data +=	"<script>setTimeout("+
+				        "\"window.location.href='/'\",2500"+
+					");</script>";
+			}
+			else{
+				data += "incorrect information!";
+				data +=	"<script>setTimeout("+
+				        "\"window.location.href='/login'\",2500"+
+					");</script>";
+			}
+
 			var bytes = Encoding.UTF8.GetBytes(data);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
