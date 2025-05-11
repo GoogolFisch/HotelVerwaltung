@@ -38,3 +38,11 @@ body{
 a.right {
 	float:right;
 }
+
+.rooms {
+	border: black 1px solid;
+	padding: 4px;
+	width: fit-content;
+	display: flex;
+	flex-direction: row;
+}

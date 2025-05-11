@@ -168,11 +168,38 @@ public class Program{
 			var bytes = Encoding.UTF8.GetBytes(data);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
+		// from service.server.HandlesStaticFile("/book", "web-files/book.html");
+		service.server.HandlesPath("/book", async (context, cancellationToken) => {
+			string data = "<!DOCTYPE html><html>" +
+			"<head>" +
+			"	<link rel=\"stylesheet\" href=\"main.css\"/>" +
+			"</head><body>" +
+			"	<div class=\"navbar\">" +
+			"		<a href=\"/\">Home</a>" +
+			"		<a href=\"/book\">Buchen</a>" +
+			"		<a href=\"/food\">Restaurante</a>" +
+			"		<a href=\"/location\">Lageplan</a>" +
+			"		<a href=\"/contact\">Ansprechpartner</a>" +
+			"		<a class=\"right\" href=\"/login\">Login</a>" +
+			"	</div>" +
+			"	<main class=\"main\">" +
+			"		<h1>Zimmer buchen</h1>";
+			//"		%%"; // insert suff here!
+			// insert auto creation of stuff here!
+			foreach(RoomInfos roomTyp in service.roomTypes){
+				data += "<div class=\"rooms\">" +
+					$"{roomTyp.ToHtml()}" +
+					"</div>\n";
+			}
+			data += 
+			"	</main></body></html>";
+			var bytes = Encoding.UTF8.GetBytes(data);
+			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+		});
 		// register local-files
 		service.server.HandlesStaticFile("/main.css", "web-files/main.css");
 		service.server.HandlesStaticFile("/", "web-files/index.html");
 		service.server.HandlesStaticFile("/food", "web-files/food.html");
-		service.server.HandlesStaticFile("/book", "web-files/book.html");
 		service.server.HandlesStaticFile("/location", "web-files/location.html");
 		service.server.HandlesStaticFile("/contact", "web-files/contact.html");
 		service.server.HandlesStaticFile("/login", "web-files/login.html"); // move to handler!

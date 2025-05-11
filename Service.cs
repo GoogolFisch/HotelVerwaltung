@@ -22,6 +22,7 @@ public class Servicer{
 	public MySqlConnection con;
 	public string webServerUrl {private set; get;}
 	public List<string> existingTables;
+	public List<RoomInfos> roomTypes;
 	public bool CheckTableExists(string tableName){
 		return existingTables.Contains(tableName.ToLower());
 	}
@@ -215,6 +216,30 @@ public class Servicer{
 		webServerUrl = prefix;
 		//webServerUrl = server.AddAvailableLocalPrefix();
 
+		// load "static" tables
+		ReadAllTalbes();
+		ReadAllRoomTypes();
+		// ???
+		//serverStartTime = DateTime.Now;
+	}
+	private void ReadAllRoomTypes(){
+		var cmd = new MySqlCommand();
+		cmd.Connection = con;
+		// this will change!
+		cmd.CommandText = "SELECT RaumTyp,AVG(Kosten) FROM Raum GROUP BY RaumTyp";
+		MySqlDataReader rdr = cmd.ExecuteReader();
+		roomTypes = new List<RoomInfos>();
+		while(rdr.Read()){
+			//roomTypes.Add(rdr.GetString(0));
+			roomTypes.Add(new RoomInfos(
+					rdr.GetString(0),
+					rdr.GetDecimal(1)
+					));
+		}
+		cmd.Dispose();
+		rdr.Dispose();
+	}
+	private void ReadAllTalbes(){
 		// get existing talbes
 		var cmd = new MySqlCommand();
 		cmd.Connection = con;
@@ -226,8 +251,6 @@ public class Servicer{
 		}
 		cmd.Dispose();
 		rdr.Dispose();
-		// ???
-		//serverStartTime = DateTime.Now;
 	}
 	public static String GetInputStream(HttpListenerRequest req){
 		if(!req.HasEntityBody)
