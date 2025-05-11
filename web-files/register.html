@@ -13,14 +13,20 @@
 			<a class="right" href="/login">login</a>
 		</div>
 		<main class="main">
-			<form action="try-login" method="post" role="form">
+			<form action="try-register" method="post" role="form">
+				<label for="fname">Erstname:</label>
+				<input type="text" id="fname" name="fname"></input><br>
+				<label for="lname">Nachname:</label>
+				<input type="text" id="lname" name="lname"></input><br>
 				<label for="e-mail">E-Mail:</label>
 				<input type="email" id="e-mail" name="mail"></input><br>
+				<label for="birth">Geburtstag:</label>
+				<input type="date" id="birth" name="birth"></input><br>
 				<label for="pwd">Passwort:</label>
 				<input type="password" id="pwd" name="pwd"></input><br>
 				<input type="submit" value="submit">
 			</form>
-			<a href="register">registreire ein Account</a>
+			<a href="login">Login</a>
 		</main>
 	</body>
 </html>

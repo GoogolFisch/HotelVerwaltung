@@ -1,15 +1,16 @@
 using MySql.Data.MySqlClient;
 using LightHTTP;
-using System.Text;
 using System.ComponentModel;
 using LightHTTP.Handling;
 using LightHTTP.Internal;
-using System.Net.Sockets;  
 using System;
+using System.IO;
+using System.Web;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 
 public class Servicer{
@@ -31,6 +32,7 @@ public class Servicer{
 		string sql = $"DESCRIBE {tableName}";
 		if(!CheckTableExists(tableName)){
 			Console.WriteLine("No Table - Creating one!");
+			/*
 			List<string> param = new List<string>(formatStr.Split("|"));
 			param[0] += " PRIMARY KEY AUTO_INCREMENT";
 			param.RemoveAt(param.Count - 1);
@@ -41,6 +43,8 @@ public class Servicer{
 				}
 			}
 			sql = $"CREATE TABLE {tableName}({String.Join(',',param)});";
+			*/
+			sql = $"CREATE TABLE {tableName}({formatStr});";
 			Console.WriteLine(sql);
 			cmd = new MySqlCommand(sql,con);
 			cmd.ExecuteNonQuery();
@@ -51,17 +55,51 @@ public class Servicer{
 
 		MySqlDataReader rdr = cmd.ExecuteReader();
 		string tabLayout = "";
+		bool isFirst = true;
+		List<string> primaryList = new List<string>();
 		while (rdr.Read())
 		{
-			tabLayout += $"{rdr.GetString(0)} {rdr.GetString(1)}|";
+			if(!isFirst)
+				tabLayout += ",";
+			else{
+				//Console.WriteLine(Program.ConcatAllTypes(rdr));
+				//Console.WriteLine(rdr.FieldCount);
+				isFirst = false;
+			}
+			tabLayout += $"{rdr.GetString(0)} {rdr.GetString(1)}";
+			//tabLayout += $" {rdr.GetString(4)} {rdr.GetString(5)}";
+			if(rdr.GetString(3) == "PRI")
+				primaryList.Add(rdr.GetString(0));
+			else{
+				if(rdr.GetString(3) != "")
+					tabLayout += $" {rdr.GetString(3)}";
+				if(rdr.GetString(2) == "NO")
+					tabLayout += " NOT NULL";
+			}
+			/*if(rdr.GetString(1) == "date"){
+				tabLayout += " DEFAULT CURRENT_TIMESTAMP";
+			}*/
+			for(int i = 5; i < rdr.FieldCount;i++)
+				tabLayout += $" {rdr.GetString(i)}";
+		}
+		// populate primary keys
+		if(primaryList.Count > 0){
+			tabLayout += ",PRIMARY KEY (";
+			isFirst = true;
+			foreach(string keys in primaryList){
+				if(!isFirst)tabLayout += ",";
+				tabLayout += $"{keys}";
+				isFirst = false;
+			}
+			tabLayout += ")";
 		}
 		rdr.Dispose();
 		cmd.Dispose();
 
-		if(formatStr == tabLayout)
+		
+		if(formatStr.Trim().ToLower() == tabLayout.Trim().ToLower())
 			return true;
-		Console.WriteLine("The expected format did't match the current one");
-		Console.WriteLine("The expected format:");
+		Console.WriteLine($"The expected format: {tableName}");
 		Console.WriteLine(formatStr);
 		Console.WriteLine("But got");
 		Console.WriteLine(tabLayout);
@@ -89,6 +127,9 @@ public class Servicer{
 	}
 	// remove all potentially dangerous characters from an string!
 	public static string Sanitise(string inStr){
+		return Sanitise(inStr,0);
+	}
+	public static string Sanitise(string inStr,int strict){
 		/*
 		string outStr = inStr;
 		foreach(char nogoChar in "/'.\"\\$"){
@@ -98,6 +139,19 @@ public class Servicer{
 		foreach(char inChar in inStr){
 			if(inChar == ' ')
 				outStr += inChar;
+			else if(strict > 0){
+				if(inChar == '!')
+					outStr += inChar;
+				else if(inChar >= '#' && inChar <= '&')
+					outStr += inChar;
+				else if(inChar >= '(' && inChar <= '_')
+					outStr += inChar;
+				else if(inChar >= 'a' && inChar <= '~')
+					outStr += inChar;
+				// idk what can happen here!
+				else if(strict > 1 && inChar >= (char)0x80)
+					outStr += inChar; 
+			}
 			else if(inChar >= '0' && inChar <= '9')
 				outStr += inChar;
 			else if(inChar >= 'A' && inChar <= 'Z')
@@ -175,6 +229,33 @@ public class Servicer{
 		// ???
 		//serverStartTime = DateTime.Now;
 	}
+	public static String GetInputStream(HttpListenerRequest req){
+		if(!req.HasEntityBody)
+			return "";
+		Stream body = req.InputStream;
+		StreamReader reader = new StreamReader(body,req.ContentEncoding);
+		String str = reader.ReadToEnd();
+		reader.Close();
+
+		body.Close();
+		body.Dispose();
+		return str;
+	}
+	public static Dictionary<String,String> GetHiddenParameters(HttpListenerRequest req){
+		Dictionary<String,String> lookup = new Dictionary<String,String>();
+		String data = GetInputStream(req);
+		
+		// The ParseQueryString method will parse the query string and return a NameValueCollection
+		var paramsCollection = HttpUtility.ParseQueryString(data);
+
+		// The foreach loop will iterate over the params collection and print the key and value for each param
+		foreach (var key in paramsCollection.AllKeys)
+		{
+			//Console.WriteLine($"Key: {key} => Value: {paramsCollection[key]}");
+			lookup.Add(key,paramsCollection[key]);
+		}
+		return lookup;
+	}
 
 	public void Start(){
 		// start the web-server
@@ -189,5 +270,70 @@ public class Servicer{
 		server.Dispose();
 		// kill MySql
 		con.Close();
+	}
+	public string EncodePassword(string input){
+		SHA256 sha256 = SHA256.Create();
+		byte[] data = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
+		sha256.Dispose();
+		return Convert.ToBase64String(data,0,32);
+	}
+	public int TryRegisterUser(Dictionary<string,string> lookup){
+		string fName = Sanitise(lookup["fname"]);
+		string lName = Sanitise(lookup["lname"]);
+		string eMail = Sanitise(lookup["mail"],1);
+		string birth = Sanitise(lookup["birth"],1);
+		string pwd = EncodePassword(lookup["pwd"]);
+		if(fName is null || fName == "") return 2;
+		if(lName is null || lName == "") return 2;
+		if(eMail is null || eMail == "") return 2;
+		if(birth is null || eMail == "") return 2;
+		if(pwd is null || eMail == "") return 2;
+		//string sql = $"SELECT * FROM Kunden WHERE VorName = \"{fName}\" AND NachName = \"{lName}\"";
+		string sql = $"SELECT * FROM Kunden WHERE eMail = \"{eMail}\"";
+		MySqlCommand cmd = new MySqlCommand(sql,con);
+		MySqlDataReader pref = cmd.ExecuteReader();
+		//Console.WriteLine(Program.ConcatAllTypes(pref));
+		bool gotContent = pref.HasRows;
+		// close this before!
+		pref.Dispose();
+		pref.Close(); 
+		// 
+		if(!gotContent){
+			cmd.CommandText = "INSERT INTO Kunden" + 
+				"(VorName,NachName,ErstellungsDatum," +
+				"eMail,GeborenAm,password) VALUES (" +
+				$"\"{fName}\"," + 
+				$"\"{lName}\"," + 
+				$"\"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}\"," + 
+				$"\"{eMail}\"," + 
+				$"\"{birth}\"," + 
+				$"\"{pwd}\"" + 
+					")";
+			//Console.WriteLine($"{cmd.CommandText}");
+			cmd.ExecuteNonQuery();
+		}
+		cmd.Dispose();
+		return gotContent ? 1 : 0; // 0 -> succ | 1 -> fail
+	}
+	public bool TryLogin(Dictionary<string,string> lookup){
+		string eMail = Sanitise(lookup["mail"],1);
+		string pwd = EncodePassword(lookup["pwd"]);
+		if(eMail is null || eMail == "") return false;
+		if(pwd is null || eMail == "") return false;
+		string sql = $"SELECT password FROM Kunden WHERE eMail = \"{eMail}\"";
+		MySqlCommand cmd = new MySqlCommand(sql,con);
+		MySqlDataReader pref = cmd.ExecuteReader();
+		bool correct = false;
+		string foundPwd = "";
+		if(pref.HasRows){
+			pref.Read();
+			foundPwd = pref.GetString(0);
+			if(foundPwd == pwd)
+				correct = true;
+		}
+		pref.Dispose();
+		pref.Close(); 
+		cmd.Dispose();
+		return correct;
 	}
 }

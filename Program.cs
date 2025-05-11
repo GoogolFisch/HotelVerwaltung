@@ -52,9 +52,10 @@ public class Program{
 
 		Console.WriteLine(service.webServerUrl);
 
-		service.EnsureTableFormat("Kunden","Kunden_ID int(11)|VorName varchar(20)|MittelName varchar(20)|NachName varchar(20)|ErstellungsDatum date|GeborenAm date|");
-		service.EnsureTableFormat("Raum","Raum_ID int(11)|Kosten decimal(5,2)|anzBetten int(2)|");
-		service.EnsureTableFormat("Buchungen","Buchungs_ID int(11)|Kunden_ID int(11)|BuchungsDatum date|");
+		service.EnsureTableFormat("Kunden","Kunden_ID int(11) auto_increment,VorName varchar(20) NOT NULL ,NachName varchar(20) NOT NULL ,eMail varchar(40) NOT NULL ,ErstellungsDatum datetime NOT NULL ,GeborenAm date NOT NULL ,password char(64) NOT NULL ,PRIMARY KEY (Kunden_ID)");
+		service.EnsureTableFormat("Raum","Raum_ID int(11) auto_increment,Kosten decimal(5,2) NOT NULL ,anzBetten int(2) NOT NULL ,RaumTyp varchar(2) NOT NULL ,ZimmerNum int(11) NOT NULL ,PRIMARY KEY (Raum_ID)");
+		service.EnsureTableFormat("Buchungen","BuchungsID int(11) auto_increment,Kunden_ID int(11) NOT NULL ,BuchungsDatum date NOT NULL ,BuchungStart date NOT NULL ,BuchungEnde date NOT NULL ,PRIMARY KEY (BuchungsID)");
+		service.EnsureTableFormat("ZimmerBuchung","Buchungs_ID int(11) ,Raum_ID int(11) ,PRIMARY KEY (Buchungs_ID,Raum_ID)");
 		// register everything!
 		// register funny logical stuff
 		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),async (context,cancellationToken) => {
@@ -62,7 +63,20 @@ public class Program{
 			context.Response.ContentEncoding = Encoding.UTF8;
 			context.Response.ContentType = "text/plain";
 			context.Request.GetClientCertificate(); // this has to be done!
-			var bytes = Encoding.UTF8.GetBytes(ConcatAllTypes(context.Request));
+			string data = ConcatAllTypes(context.Request);
+			data += "===========\n";
+			data += ConcatAllTypes(context.Request.Cookies);
+			data += "??\n";
+			foreach(var cookie in context.Request.Cookies){
+				data += $"{cookie}\n";
+			}
+			data += "===========\n";
+			// get info from "form"-elements
+			var hidParam = Servicer.GetHiddenParameters(context.Request);
+			foreach(var key in hidParam.Keys)
+				data += $"{key} -> {hidParam[key]}\n";
+			var bytes = Encoding.UTF8.GetBytes(data);
+			//var bytes = Encoding.UTF8.GetBytes(ConcatAllTypes(context.Request.QueryString));
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
 		service.server.Handles(str => (str == "/tables" || str.StartsWith("/tables/")),async (context,cancellationToken) => {
@@ -80,7 +94,9 @@ public class Program{
 			else{
 				data = $"Table: {tblName}\n";
 				var schema = service.con.GetSchema(tblName);
+				Console.WriteLine(data);
 				data += ConcatAllTypes(schema);
+				Console.WriteLine(data);
 				/*foreach (System.Data.DataColumn col in schema.Columns)
 				{
 					data += $"{col.ColumnName} - ";
@@ -106,6 +122,52 @@ public class Program{
 					"<a href=\"https://github.com/javidsho/LightHTTP\">LightHttp</a></body></html>");
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
+		service.server.HandlesPath("/try-register", async (context, cancellationToken) => {
+			var hidParam = Servicer.GetHiddenParameters(context.Request);
+			string data = "<!DOCTYPE html><html><body>";
+			int retVal = service.TryRegisterUser(hidParam);
+			if(retVal == 0){
+				data += "registering successfull for:<br>";
+				data += $"{hidParam["fname"]} ";
+				data += $"{hidParam["lname"]}";
+				data +=	"<script>setTimeout("+
+				        "\"window.location.href='/'\",2500);</script>";
+			} else if(retVal == 1){
+				data += "some one already hash such an account";
+				data +=	"<script>setTimeout("+
+				        "\"window.location.href='/register'\",2500"+
+					");</script>";
+			}else if(retVal == 2){
+				data += "Not correct format!";
+				data +=	"<script>setTimeout("+
+				        "\"window.location.href='/register'\",2500"+
+					");</script>";
+			}
+			data += "</body></html>";
+			context.Response.ContentType = "text/html";
+			var bytes = Encoding.UTF8.GetBytes(data);
+			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+		});
+		service.server.HandlesPath("/try-login", async (context, cancellationToken) => {
+			var hidParam = Servicer.GetHiddenParameters(context.Request);
+			string data = "<!DOCTYPE html><html><body>";
+			bool retVal = service.TryLogin(hidParam);
+			if(retVal){
+				data += "success!";
+				data +=	"<script>setTimeout("+
+				        "\"window.location.href='/'\",2500"+
+					");</script>";
+			}
+			else{
+				data += "incorrect information!";
+				data +=	"<script>setTimeout("+
+				        "\"window.location.href='/login'\",2500"+
+					");</script>";
+			}
+
+			var bytes = Encoding.UTF8.GetBytes(data);
+			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+		});
 		// register local-files
 		service.server.HandlesStaticFile("/main.css", "web-files/main.css");
 		service.server.HandlesStaticFile("/", "web-files/index.html");
@@ -113,7 +175,8 @@ public class Program{
 		service.server.HandlesStaticFile("/book", "web-files/book.html");
 		service.server.HandlesStaticFile("/location", "web-files/location.html");
 		service.server.HandlesStaticFile("/contact", "web-files/contact.html");
-		service.server.HandlesStaticFile("/login", "web-files/login.html");
+		service.server.HandlesStaticFile("/login", "web-files/login.html"); // move to handler!
+		service.server.HandlesStaticFile("/register", "web-files/register.html"); // move to handler!
 
 		//
 		service.Start();
