@@ -14,8 +14,13 @@ public struct RoomInfos{
 			"<div>" +
 			$"Typ:{typeName}<br>" +
 			// I know $ 150.00 is not €, but who cares!
-			$"Kosten:{cost.ToString("C2")}" +
-			"<button>Buchen</button>" +
-			"</div>" ;
+			$"Kosten:{cost.ToString("C2")}<br>" +
+			"</div><div>" +
+			// adding events!
+			$"<a class=\"big-select\" id=\"add-{typeName}\">+</a>" +
+			$"<a class=\"big-select\" id=\"shw-{typeName}\">0</a>" +
+			$"<a class=\"big-select\" id=\"sub-{typeName}\">-</a>" +
+			"</div>"
+			;
 	}
 }

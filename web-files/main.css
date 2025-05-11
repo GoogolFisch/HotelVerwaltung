@@ -35,8 +35,18 @@ body{
 	margin-top: 60px; /* Add a top margin to avoid content overlay */
 }
 
+.big-select{
+	font-size: 20px;
+	margin: 5px;
+}
+
 a.right {
 	float:right;
+}
+
+.flexing-down{
+	display: flex;
+	flex-direction: column;
 }
 
 .rooms {
@@ -44,5 +54,14 @@ a.right {
 	padding: 4px;
 	width: fit-content;
 	display: flex;
+	flex-wrap: nowrap;
 	flex-direction: row;
+	margin: 3px;
+}
+.rooms img {
+	width: 50px;
+	height: 50px;
+}
+.rooms div {
+	margin-left: 15px;
 }

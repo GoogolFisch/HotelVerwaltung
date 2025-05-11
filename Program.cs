@@ -186,15 +186,46 @@ public class Program{
 			"		<h1>Zimmer buchen</h1>";
 			//"		%%"; // insert suff here!
 			// insert auto creation of stuff here!
+			data += "<ul>";
 			foreach(RoomInfos roomTyp in service.roomTypes){
-				data += "<div class=\"rooms\">" +
+				data += "<li class=\"rooms\">" +
 					$"{roomTyp.ToHtml()}" +
-					"</div>\n";
+					"</li>\n";
 			}
+			data += "</ul>";
+			// adding booking stuff
+			data +=
+			"<form method=\"post\" role=\"form\">" +
+				"<label for=\"from\">Datum von:</label>" +
+				"<input type=\"date\" id=\"from\" name=\"from\"></input><br>" +
+				"<label for=\"till\">Datum bis:</label>" +
+				"<input type=\"date\" id=\"till\" name=\"till\"></input><br>" +
+				"<label for=\"mail\">E-Mail:</label>" +
+				"<input type=\"email\" id=\"mail\" name=\"mail\"></input><br>" +
+				"<label for=\"pwd\">Passwort:</label>" +
+				"<input type=\"password\" id=\"pwd\" name=\"pwd\"></input><br>" +
+				"<div class=\"flex-down\">" +
+				"<div id=\"costing\">Kostet: $0</div>" +
+				"<button>Buchen!</button>" +
+				"</div>" +
+			"</form>";
 			data += 
 			"	</main></body></html>";
 			var bytes = Encoding.UTF8.GetBytes(data);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+		});
+		service.server.Handles(
+				path => path.StartsWith("/images/") &&
+					(!path.Contains("..")),
+		async (context, cancellationToken) => {
+			//Console.WriteLine(context.Request.RawUrl);
+			using var fileStream = new FileStream(
+				$".{context.Request.RawUrl}", FileMode.Open
+			);
+			await fileStream.CopyToAsync(
+				context.Response.OutputStream, 81920,
+				cancellationToken
+			).ConfigureAwait(false);
 		});
 		// register local-files
 		service.server.HandlesStaticFile("/main.css", "web-files/main.css");
