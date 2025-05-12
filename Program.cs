@@ -198,6 +198,8 @@ public class Program{
 			MySqlCommand cmd = new MySqlCommand(sql,service.con);
 			MySqlDataReader pref;
 			foreach(RoomInfos rmInf in service.roomTypes){
+				if(hidParam[$"snd-{rmInf.typeName}"] == "")
+					hidParam[$"snd-{rmInf.typeName}"] = "0";
 				int wantingCnt = Convert.ToInt32(
 						hidParam[$"snd-{rmInf.typeName}"]
 						);
