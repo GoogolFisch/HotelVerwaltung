@@ -36,8 +36,16 @@ body{
 }
 
 .big-select{
+	display: inline-block;
 	font-size: 20px;
-	margin: 5px;
+	margin: 2px;
+	margin-top: 40%;
+	text-align: center;
+	width: 15px;
+	height: 25px;
+	border: solid 1px lightgray;
+	transform: translate(-50%,-50%);
+	user-select: none;
 }
 
 a.right {

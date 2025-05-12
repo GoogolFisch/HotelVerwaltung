@@ -1,8 +1,8 @@
 
 public struct RoomInfos{
-	string typeName;
-	decimal cost;
-	string picturePath;
+	public string typeName;
+	public decimal cost;
+	public string picturePath;
 	public RoomInfos(string typ,decimal cost){
 		this.typeName = typ;
 		this.cost = cost;
@@ -17,9 +17,9 @@ public struct RoomInfos{
 			$"Kosten:{cost.ToString("C2")}<br>" +
 			"</div><div>" +
 			// adding events!
-			$"<a class=\"big-select\" id=\"add-{typeName}\">+</a>" +
-			$"<a class=\"big-select\" id=\"shw-{typeName}\">0</a>" +
-			$"<a class=\"big-select\" id=\"sub-{typeName}\">-</a>" +
+			$"<a class=\"big-select\" id=\"add-{typeName}\" onclick=\"room_update('{typeName}',1);\">+</a>" +
+			$"<a class=\"big-select\" id=\"shw-{typeName}\" onclick=\"room_update('{typeName}',0);\">0</a>" +
+			$"<a class=\"big-select\" id=\"sub-{typeName}\" onclick=\"room_update('{typeName}',-1);\">-</a>" +
 			"</div>"
 			;
 	}

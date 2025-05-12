@@ -218,7 +218,6 @@ public class Servicer{
 
 		// load "static" tables
 		ReadAllTalbes();
-		ReadAllRoomTypes();
 		// ???
 		//serverStartTime = DateTime.Now;
 	}
@@ -283,6 +282,7 @@ public class Servicer{
 	public void Start(){
 		// start the web-server
 
+		ReadAllRoomTypes();
 		bool isWindows = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 		if (isWindows)
 			ShellHelper.RegisterHttp(webServerUrl);
