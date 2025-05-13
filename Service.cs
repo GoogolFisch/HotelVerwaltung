@@ -30,7 +30,8 @@ public class Servicer{
 	{
 		MySqlCommand cmd;
 		tableName = Servicer.Sanitise(tableName);
-		string sql = $"DESCRIBE {tableName}";
+		//string sql = $"DESCRIBE {tableName}";
+		string sql = $"SHOW CREATE TABLE {tableName}";
 		if(!CheckTableExists(tableName)){
 			Console.WriteLine("No Table - Creating one!");
 			/*
@@ -56,7 +57,7 @@ public class Servicer{
 
 		MySqlDataReader rdr = cmd.ExecuteReader();
 		string tabLayout = "";
-		bool isFirst = true;
+		/*bool isFirst = true;
 		List<string> primaryList = new List<string>();
 		while (rdr.Read())
 		{
@@ -77,9 +78,6 @@ public class Servicer{
 				if(rdr.GetString(2) == "NO")
 					tabLayout += " NOT NULL";
 			}
-			/*if(rdr.GetString(1) == "date"){
-				tabLayout += " DEFAULT CURRENT_TIMESTAMP";
-			}*/
 			for(int i = 5; i < rdr.FieldCount;i++)
 				tabLayout += $" {rdr.GetString(i)}";
 		}
@@ -93,7 +91,13 @@ public class Servicer{
 				isFirst = false;
 			}
 			tabLayout += ")";
-		}
+		}*/
+		if(rdr.Read())
+			tabLayout = rdr.GetString(1);
+		tabLayout = tabLayout.Replace("\n","");
+		tabLayout = tabLayout.Replace("  "," ");
+		tabLayout = tabLayout.Substring(0,1 + tabLayout.LastIndexOf(")"));
+		//Console.WriteLine(tabLayout);
 		rdr.Dispose();
 		cmd.Dispose();
 

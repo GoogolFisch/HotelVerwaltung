@@ -54,10 +54,10 @@ public class Program{
 
 		Console.WriteLine(service.webServerUrl);
 
-		service.EnsureTableFormat("Kunden","Kunden_ID int(11) auto_increment,VorName varchar(20) NOT NULL ,NachName varchar(20) NOT NULL ,eMail varchar(40) NOT NULL ,ErstellungsDatum datetime NOT NULL ,GeborenAm date NOT NULL ,password char(64) NOT NULL ,PRIMARY KEY (Kunden_ID)");
-		service.EnsureTableFormat("Raum","Raum_ID int(11) auto_increment,Kosten decimal(5,2) NOT NULL ,anzBetten int(2) NOT NULL ,RaumTyp varchar(2) NOT NULL ,ZimmerNum int(11) NOT NULL ,PRIMARY KEY (Raum_ID)");
-		service.EnsureTableFormat("Buchungen","BuchungsID int(11) auto_increment,Kunden_ID int(11) NOT NULL ,BuchungsDatum datetime NOT NULL ,BuchungStart date NOT NULL ,BuchungEnde date NOT NULL ,PRIMARY KEY (BuchungsID)");
-		service.EnsureTableFormat("ZimmerBuchung","Buchungs_ID int(11) ,Raum_ID int(11) ,PRIMARY KEY (Buchungs_ID,Raum_ID)");
+		service.EnsureTableFormat("Kunden","CREATE TABLE `Kunden` ( `Kunden_ID` int(11) NOT NULL AUTO_INCREMENT, `VorName` varchar(20) NOT NULL, `NachName` varchar(20) NOT NULL, `eMail` varchar(40) NOT NULL, `ErstellungsDatum` datetime NOT NULL, `GeborenAm` date NOT NULL, `password` char(64) NOT NULL, PRIMARY KEY (`Kunden_ID`))");
+		service.EnsureTableFormat("Raum","CREATE TABLE `Raum` ( `Raum_ID` int(11) NOT NULL AUTO_INCREMENT, `Kosten` decimal(5,2) NOT NULL, `anzBetten` int(2) NOT NULL, `RaumTyp` varchar(2) NOT NULL, `ZimmerNum` int(11) NOT NULL, PRIMARY KEY (`Raum_ID`))");
+		service.EnsureTableFormat("Buchungen","CREATE TABLE `Buchungen` ( `BuchungsID` int(11) NOT NULL AUTO_INCREMENT, `Kunden_ID` int(11) NOT NULL, `BuchungsDatum` datetime NOT NULL, `BuchungStart` date NOT NULL, `BuchungEnde` date NOT NULL, PRIMARY KEY (`BuchungsID`))");
+		service.EnsureTableFormat("ZimmerBuchung","CREATE TABLE `ZimmerBuchung` ( `Buchungs_ID` int(11) NOT NULL, `Raum_ID` int(11) NOT NULL, PRIMARY KEY (`Buchungs_ID`,`Raum_ID`))");
 		// register everything!
 		// register funny logical stuff
 		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),async (context,cancellationToken) => {
@@ -216,10 +216,11 @@ public class Program{
 				data += "Sie haben mehr Raeume gebucht, als moeglich sind!";
 				goto DISPOSE_CMD_BOOK;
 			}
-			cmd.CommandText = $"INSERT INTO Buchungen(Kunden_ID,BuchungsDatum,BuchungStart,BuchungEnde) VALUES((SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{hidParam["mail"]}\"),\"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}\"," + 
+			string sanMail = Servicer.Sanitise(hidParam["mail"],1);
+			cmd.CommandText = $"INSERT INTO Buchungen(Kunden_ID,BuchungsDatum,BuchungStart,BuchungEnde) VALUES((SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{sanMail}\"),\"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}\"," + 
 			$"\"{starting.ToString("yyyy-MM-dd")}\",\"{ending.ToString("yyyy-MM-dd")}\")";
 			cmd.ExecuteNonQuery();
-			cmd.CommandText = $"SELECT BuchungsID FROM Buchungen WHERE Kunden_ID = (SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{hidParam["mail"]}\")";
+			cmd.CommandText = $"SELECT MAX(BuchungsID) FROM Buchungen WHERE Kunden_ID = (SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{sanMail}\")";
 			pref = cmd.ExecuteReader();
 			pref.Read();
 			int buchungsId = pref.GetInt32(0);
