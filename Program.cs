@@ -151,13 +151,14 @@ public class Program{
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
 		service.server.HandlesPath("/try-login", async (context, cancellationToken) => {
+			//try{
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
 			string data = "<!DOCTYPE html><html><body>";
 			bool retVal = service.TryLogin(hidParam);
 			if(retVal){
 				data += "success!";
 				data +=	"<script>setTimeout("+
-				        "\"window.location.href='/'\",2500"+
+				        $"\"window.location.href='/account/{service.GetTokenFor(hidParam["mail"])}'\",500"+
 					");</script>";
 			}
 			else{
@@ -169,6 +170,78 @@ public class Program{
 
 			var bytes = Encoding.UTF8.GetBytes(data);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+			//}catch(Exception e){Console.WriteLine(e.ToString());}
+		});
+		service.server.Handles(
+				path => path.StartsWith("/account/"),
+		async (context, cancellationToken) => {
+			try{
+			string tok = context.Request.RawUrl.Substring(9);
+			string data = "<!DOCTYPE html><html><body>";
+			int accId;
+			bool correctToken = service.CheckToken(tok,out accId);
+			if(!correctToken){
+				context.Response.StatusCode = 404;
+				return;
+			}
+			//Console.WriteLine(context.Request.RawUrl);
+			MySqlCommand cmd = new MySqlCommand($"SELECT Kunden_ID, VorName, NachName, eMail, GeborenAm, ErstellungsDatum From Kunden Where Kunden_ID = {accId}",service.con);
+			MySqlDataReader pref = cmd.ExecuteReader();
+			pref.Read();
+			data += "<div>"+
+			$"Hello {pref.GetString(1)} {pref.GetString(2)}<br>" +
+			$"E-Mail: {pref.GetString(3)}<br>" +
+			$"Geboren Am: {pref.GetDateTime(4).ToString("dd.MM.yyyy")}<br>" +
+			$"Account_ID:{pref.GetInt32(0)}<br>" +
+			$"Erstellt am:{pref.GetDateTime(5).ToString("dd.MM.yyyy HH:mm:ss")}</div>";
+			pref.Close();
+			pref.Dispose();
+			cmd.CommandText = "SELECT * FROM Buchungen";
+			pref = cmd.ExecuteReader();
+			List<BookingInfo> bkInfos = new List<BookingInfo>();
+			while(pref.Read()){
+				bkInfos.Add(new BookingInfo(
+					pref.GetInt32(0),
+					pref.GetInt32(1),
+					pref.GetDateTime(2),
+					pref.GetDateTime(3),
+					pref.GetDateTime(4)
+							));
+			}
+			pref.Close();
+			pref.Dispose();
+			data += "<div>";
+			decimal kosten;
+			string addLaterData;
+			foreach(BookingInfo bkinf in bkInfos){
+				kosten = 0m;
+				cmd.CommandText = $"SELECT r.Kosten,r.anzBetten,r.RaumTyp,r.ZimmerNum FROM Raum r JOIN ZimmerBuchung zb ON r.Raum_ID = zb.Raum_ID WHERE zb.Buchungs_ID = {bkinf.bookingId}";
+				pref = cmd.ExecuteReader();
+				addLaterData = "";
+				while(pref.Read()){
+					kosten += (decimal)pref.GetFloat(0);
+					addLaterData += $"Raum {pref.GetString(2)}: " +
+						$"{pref.GetInt32(3)}" +
+						$"{pref.GetInt32(1)} Betten" +
+						$"${pref.GetFloat(0)}<br>";
+				}
+				data += $"{bkinf.bookingDate} " +
+					$"{bkinf.bookingStart} - {bkinf.bookingEnd}" +
+					$" | ${kosten}<br>";
+				data += "<div>" + 
+				$"{addLaterData}" +
+				"</div>";
+
+				pref.Close();
+				pref.Dispose();
+				data += $"";
+			}
+			cmd.Dispose();
+			data += "</div>";
+			data += "</body></html>";
+			var bytes = Encoding.UTF8.GetBytes(data);
+			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+			}catch(Exception e){Console.WriteLine(e.ToString());}
 		});
 		service.server.HandlesPath("/try-book", async (context, cancellationToken) => {
 				try{

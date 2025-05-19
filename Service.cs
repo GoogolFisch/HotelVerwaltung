@@ -15,6 +15,7 @@ using System.Runtime.InteropServices;
 
 public class Servicer{
 
+	public const string tokenRandomData = "stringRandomData";
 	public const string sqlServerString = @"server=localhost;userid=hotelServer;password=1234;database=hotelServer";
 	public LightHttpServer server;// = new LightHttpServer(); // https://github.com/javidsho/LightHTTP.git
 	//public bool shouldKillAll;// = false;
@@ -145,6 +146,7 @@ public class Servicer{
 			if(inChar == ' ')
 				outStr += inChar;
 			else if(strict > 0){
+				// maybe add " -> %22 ...
 				if(inChar == '!')
 					outStr += inChar;
 				else if(inChar >= '#' && inChar <= '&')
@@ -298,7 +300,7 @@ public class Servicer{
 		// kill MySql
 		con.Close();
 	}
-	public string EncodePassword(string input){
+	public static string EncodePassword(string input){
 		SHA256 sha256 = SHA256.Create();
 		byte[] data = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
 		sha256.Dispose();
@@ -362,5 +364,40 @@ public class Servicer{
 		pref.Close(); 
 		cmd.Dispose();
 		return correct;
+	}
+	public string GetTokenFor(string accountEMail){
+		accountEMail = Sanitise(accountEMail,1);
+		MySqlCommand cmd = new MySqlCommand($"SELECT password,Kunden_ID FROM Kunden WHERE eMail = \"{accountEMail}\"",con);
+		MySqlDataReader pref = cmd.ExecuteReader();
+		pref.Read();
+		string base64Hash = $"{pref.GetString(0)}-{accountEMail}-{DateTime.Now.ToString("yyyy-MM-dd")}-{tokenRandomData}";
+		int accountId = pref.GetInt32(1);
+		pref.Close();
+		pref.Dispose();
+		cmd.Dispose();
+		base64Hash = Servicer.EncodePassword(base64Hash);
+		return $"{accountId}-{base64Hash}";
+	}
+	public string GetTokenFor(int accountId){
+		MySqlCommand cmd = new MySqlCommand($"SELECT password,eMail FROM Kunden WHERE Kunden_ID = {accountId}",con);
+		MySqlDataReader pref = cmd.ExecuteReader();
+		pref.Read();
+		string base64Hash = $"{pref.GetString(0)}-{pref.GetString(1)}-{DateTime.Now.ToString("yyyy-MM-dd")}-{tokenRandomData}";
+		pref.Close();
+		pref.Dispose();
+		cmd.Dispose();
+		base64Hash = Servicer.EncodePassword(base64Hash);
+		return $"{accountId}-{base64Hash}";
+	}
+	public bool CheckToken(string token,out int accountId){
+		string accountStr = token.Split('-')[0];
+		if(!int.TryParse(accountStr,out accountId))
+			return false;
+		//
+		string refrence = GetTokenFor(accountId);
+		if(refrence != token)
+			return false;
+		// success!
+		return true;
 	}
 }
