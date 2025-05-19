@@ -35,6 +35,41 @@ body{
 	margin-top: 60px; /* Add a top margin to avoid content overlay */
 }
 
+.big-select{
+	display: inline-block;
+	font-size: 20px;
+	margin: 2px;
+	margin-top: 40%;
+	text-align: center;
+	width: 15px;
+	height: 25px;
+	border: solid 1px lightgray;
+	transform: translate(-50%,-50%);
+	user-select: none;
+}
+
 a.right {
 	float:right;
+}
+
+.flexing-down{
+	display: flex;
+	flex-direction: column;
+}
+
+.rooms {
+	border: black 1px solid;
+	padding: 4px;
+	width: fit-content;
+	display: flex;
+	flex-wrap: nowrap;
+	flex-direction: row;
+	margin: 3px;
+}
+.rooms img {
+	width: 50px;
+	height: 50px;
+}
+.rooms div {
+	margin-left: 15px;
 }

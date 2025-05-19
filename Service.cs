@@ -22,6 +22,7 @@ public class Servicer{
 	public MySqlConnection con;
 	public string webServerUrl {private set; get;}
 	public List<string> existingTables;
+	public List<RoomInfos> roomTypes;
 	public bool CheckTableExists(string tableName){
 		return existingTables.Contains(tableName.ToLower());
 	}
@@ -29,7 +30,8 @@ public class Servicer{
 	{
 		MySqlCommand cmd;
 		tableName = Servicer.Sanitise(tableName);
-		string sql = $"DESCRIBE {tableName}";
+		//string sql = $"DESCRIBE {tableName}";
+		string sql = $"SHOW CREATE TABLE {tableName}";
 		if(!CheckTableExists(tableName)){
 			Console.WriteLine("No Table - Creating one!");
 			/*
@@ -55,7 +57,7 @@ public class Servicer{
 
 		MySqlDataReader rdr = cmd.ExecuteReader();
 		string tabLayout = "";
-		bool isFirst = true;
+		/*bool isFirst = true;
 		List<string> primaryList = new List<string>();
 		while (rdr.Read())
 		{
@@ -76,9 +78,6 @@ public class Servicer{
 				if(rdr.GetString(2) == "NO")
 					tabLayout += " NOT NULL";
 			}
-			/*if(rdr.GetString(1) == "date"){
-				tabLayout += " DEFAULT CURRENT_TIMESTAMP";
-			}*/
 			for(int i = 5; i < rdr.FieldCount;i++)
 				tabLayout += $" {rdr.GetString(i)}";
 		}
@@ -92,7 +91,13 @@ public class Servicer{
 				isFirst = false;
 			}
 			tabLayout += ")";
-		}
+		}*/
+		if(rdr.Read())
+			tabLayout = rdr.GetString(1);
+		tabLayout = tabLayout.Replace("\n","");
+		tabLayout = tabLayout.Replace("  "," ");
+		tabLayout = tabLayout.Substring(0,1 + tabLayout.LastIndexOf(")"));
+		//Console.WriteLine(tabLayout);
 		rdr.Dispose();
 		cmd.Dispose();
 
@@ -215,6 +220,29 @@ public class Servicer{
 		webServerUrl = prefix;
 		//webServerUrl = server.AddAvailableLocalPrefix();
 
+		// load "static" tables
+		ReadAllTalbes();
+		// ???
+		//serverStartTime = DateTime.Now;
+	}
+	private void ReadAllRoomTypes(){
+		var cmd = new MySqlCommand();
+		cmd.Connection = con;
+		// this will change!
+		cmd.CommandText = "SELECT RaumTyp,AVG(Kosten) FROM Raum GROUP BY RaumTyp";
+		MySqlDataReader rdr = cmd.ExecuteReader();
+		roomTypes = new List<RoomInfos>();
+		while(rdr.Read()){
+			//roomTypes.Add(rdr.GetString(0));
+			roomTypes.Add(new RoomInfos(
+					rdr.GetString(0),
+					rdr.GetDecimal(1)
+					));
+		}
+		cmd.Dispose();
+		rdr.Dispose();
+	}
+	private void ReadAllTalbes(){
 		// get existing talbes
 		var cmd = new MySqlCommand();
 		cmd.Connection = con;
@@ -226,8 +254,33 @@ public class Servicer{
 		}
 		cmd.Dispose();
 		rdr.Dispose();
-		// ???
-		//serverStartTime = DateTime.Now;
+	}
+	public static String GetInputStream(HttpListenerRequest req){
+		if(!req.HasEntityBody)
+			return "";
+		Stream body = req.InputStream;
+		StreamReader reader = new StreamReader(body,req.ContentEncoding);
+		String str = reader.ReadToEnd();
+		reader.Close();
+
+		body.Close();
+		body.Dispose();
+		return str;
+	}
+	public static Dictionary<String,String> GetHiddenParameters(HttpListenerRequest req){
+		Dictionary<String,String> lookup = new Dictionary<String,String>();
+		String data = GetInputStream(req);
+		
+		// The ParseQueryString method will parse the query string and return a NameValueCollection
+		var paramsCollection = HttpUtility.ParseQueryString(data);
+
+		// The foreach loop will iterate over the params collection and print the key and value for each param
+		foreach (var key in paramsCollection.AllKeys)
+		{
+			//Console.WriteLine($"Key: {key} => Value: {paramsCollection[key]}");
+			lookup.Add(key,paramsCollection[key]);
+		}
+		return lookup;
 	}
 	public static String GetInputStream(HttpListenerRequest req){
 		if(!req.HasEntityBody)
@@ -260,6 +313,7 @@ public class Servicer{
 	public void Start(){
 		// start the web-server
 
+		ReadAllRoomTypes();
 		bool isWindows = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 		if (isWindows)
 			ShellHelper.RegisterHttp(webServerUrl);

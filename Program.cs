@@ -1,7 +1,9 @@
 ﻿using MySql.Data.MySqlClient;
+using System.Collections.Generic;
 using LightHTTP;
 using System.Text;
 using System.ComponentModel;
+using System.Globalization;
 // See https://aka.ms/new-console-template for more information
 public class Program{
 	/*
@@ -52,10 +54,10 @@ public class Program{
 
 		Console.WriteLine(service.webServerUrl);
 
-		service.EnsureTableFormat("Kunden","Kunden_ID int(11) auto_increment,VorName varchar(20) NOT NULL ,NachName varchar(20) NOT NULL ,eMail varchar(40) NOT NULL ,ErstellungsDatum datetime NOT NULL ,GeborenAm date NOT NULL ,password char(64) NOT NULL ,PRIMARY KEY (Kunden_ID)");
-		service.EnsureTableFormat("Raum","Raum_ID int(11) auto_increment,Kosten decimal(5,2) NOT NULL ,anzBetten int(2) NOT NULL ,RaumTyp varchar(2) NOT NULL ,ZimmerNum int(11) NOT NULL ,PRIMARY KEY (Raum_ID)");
-		service.EnsureTableFormat("Buchungen","BuchungsID int(11) auto_increment,Kunden_ID int(11) NOT NULL ,BuchungsDatum date NOT NULL ,BuchungStart date NOT NULL ,BuchungEnde date NOT NULL ,PRIMARY KEY (BuchungsID)");
-		service.EnsureTableFormat("ZimmerBuchung","Buchungs_ID int(11) ,Raum_ID int(11) ,PRIMARY KEY (Buchungs_ID,Raum_ID)");
+		service.EnsureTableFormat("Kunden","CREATE TABLE `Kunden` ( `Kunden_ID` int(11) NOT NULL AUTO_INCREMENT, `VorName` varchar(20) NOT NULL, `NachName` varchar(20) NOT NULL, `eMail` varchar(40) NOT NULL, `ErstellungsDatum` datetime NOT NULL, `GeborenAm` date NOT NULL, `password` char(64) NOT NULL, PRIMARY KEY (`Kunden_ID`))");
+		service.EnsureTableFormat("Raum","CREATE TABLE `Raum` ( `Raum_ID` int(11) NOT NULL AUTO_INCREMENT, `Kosten` decimal(5,2) NOT NULL, `anzBetten` int(2) NOT NULL, `RaumTyp` varchar(2) NOT NULL, `ZimmerNum` int(11) NOT NULL, PRIMARY KEY (`Raum_ID`))");
+		service.EnsureTableFormat("Buchungen","CREATE TABLE `Buchungen` ( `BuchungsID` int(11) NOT NULL AUTO_INCREMENT, `Kunden_ID` int(11) NOT NULL, `BuchungsDatum` datetime NOT NULL, `BuchungStart` date NOT NULL, `BuchungEnde` date NOT NULL, PRIMARY KEY (`BuchungsID`))");
+		service.EnsureTableFormat("ZimmerBuchung","CREATE TABLE `ZimmerBuchung` ( `Buchungs_ID` int(11) NOT NULL, `Raum_ID` int(11) NOT NULL, PRIMARY KEY (`Buchungs_ID`,`Raum_ID`))");
 		// register everything!
 		// register funny logical stuff
 		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),async (context,cancellationToken) => {
@@ -168,11 +170,157 @@ public class Program{
 			var bytes = Encoding.UTF8.GetBytes(data);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
+		service.server.HandlesPath("/try-book", async (context, cancellationToken) => {
+				try{
+			var hidParam = Servicer.GetHiddenParameters(context.Request);
+			string data = "<!DOCTYPE html><html><body>";
+			bool retVal = service.TryLogin(hidParam);
+			if(retVal){
+				data += "login successful!";
+			}else{
+				data += "wrong login!";
+				goto END_TRY_BOOK;
+			}
+			DateTime starting = DateTime.Parse(hidParam["from"],CultureInfo.InvariantCulture);
+			DateTime ending = DateTime.Parse(hidParam["till"],CultureInfo.InvariantCulture);
+			Console.WriteLine($"{starting} - {ending}");
+			if(starting > ending){
+				data += "\nout of order!";
+				goto END_TRY_BOOK;
+			}
+			if(ending < DateTime.Now){ // add a min time!
+				data += "\ncannot book in the past!";
+				goto END_TRY_BOOK;
+			}
+			// SELECT * FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.BuchungsID WHERE b.BuchungStart > "2025-02-02" AND b.BuchungEnde < "2025-03-03")
+			string sql = "";
+			bool canDoIt = true;
+			MySqlCommand cmd = new MySqlCommand(sql,service.con);
+			MySqlDataReader pref;
+			foreach(RoomInfos rmInf in service.roomTypes){
+				if(hidParam[$"snd-{rmInf.typeName}"] == "")
+					hidParam[$"snd-{rmInf.typeName}"] = "0";
+				int wantingCnt = Convert.ToInt32(
+						hidParam[$"snd-{rmInf.typeName}"]
+						);
+				cmd.CommandText = $"SELECT COUNT(*) FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.BuchungsID WHERE b.BuchungStart > \"{starting.ToString("yyyy-MM-dd")}\" AND b.BuchungEnde < \"{ending.ToString("yyyy-MM-dd")}\") AND RaumTyp =\"{rmInf.typeName}\" ";
+				pref = cmd.ExecuteReader();
+				pref.Read();
+				int count = pref.GetInt32(0);
+				//Console.WriteLine($"{count} / {wantingCnt}");
+				canDoIt &= (count >= wantingCnt);
+				pref.Dispose();
+				pref.Close();
+			}
+			if(!canDoIt){
+				data += "Sie haben mehr Raeume gebucht, als moeglich sind!";
+				goto DISPOSE_CMD_BOOK;
+			}
+			string sanMail = Servicer.Sanitise(hidParam["mail"],1);
+			cmd.CommandText = $"INSERT INTO Buchungen(Kunden_ID,BuchungsDatum,BuchungStart,BuchungEnde) VALUES((SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{sanMail}\"),\"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}\"," + 
+			$"\"{starting.ToString("yyyy-MM-dd")}\",\"{ending.ToString("yyyy-MM-dd")}\")";
+			cmd.ExecuteNonQuery();
+			cmd.CommandText = $"SELECT MAX(BuchungsID) FROM Buchungen WHERE Kunden_ID = (SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{sanMail}\")";
+			pref = cmd.ExecuteReader();
+			pref.Read();
+			int buchungsId = pref.GetInt32(0);
+			pref.Dispose();
+			pref.Close();
+			foreach(RoomInfos rmInf in service.roomTypes){
+				cmd.CommandText = $"SELECT Raum_ID FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.BuchungsID WHERE b.BuchungStart > \"{starting.ToString("yyyy-MM-dd")}\" AND b.BuchungEnde < \"{ending.ToString("yyyy-MM-dd")}\") AND RaumTyp =\"{rmInf.typeName}\" ";
+				pref = cmd.ExecuteReader();
+				List<int> roomIds = new List<int>();
+				while(pref.Read())
+					roomIds.Add(pref.GetInt32(0));
+				pref.Dispose();
+				pref.Close();
+				//
+				int counting = Convert.ToInt32(hidParam[$"snd-{rmInf.typeName}"]);
+				for(int i = 0;i < counting;i++){
+					cmd.CommandText = $"INSERT INTO ZimmerBuchung(Buchungs_ID,Raum_ID) Values ({buchungsId},{roomIds[i]})";
+					cmd.ExecuteNonQuery();
+				}
+			}
+
+DISPOSE_CMD_BOOK:
+			cmd.Dispose();
+END_TRY_BOOK:
+			data += "</body></html>";
+			var bytes = Encoding.UTF8.GetBytes(data);
+			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+			}catch(Exception e){Console.WriteLine(e.ToString());}
+		});
+		// from service.server.HandlesStaticFile("/book", "web-files/book.html");
+		service.server.HandlesPath("/book", async (context, cancellationToken) => {
+			string data = "<!DOCTYPE html><html>" +
+			"<head>" +
+			"	<link rel=\"stylesheet\" href=\"main.css\"/>" +
+			"	<script src=\"/scripts/booking.js\"></script>" +
+			"</head><body>" +
+			"	<div class=\"navbar\">" +
+			"		<a href=\"/\">Home</a>" +
+			"		<a href=\"/book\">Buchen</a>" +
+			"		<a href=\"/food\">Restaurante</a>" +
+			"		<a href=\"/location\">Lageplan</a>" +
+			"		<a href=\"/contact\">Ansprechpartner</a>" +
+			"		<a class=\"right\" href=\"/login\">Login</a>" +
+			"	</div>" +
+			"	<main class=\"main\">" +
+			"		<h1>Zimmer buchen</h1>";
+			//"		%%"; // insert suff here!
+			// insert auto creation of stuff here!
+			data += "<ul>";
+			foreach(RoomInfos roomTyp in service.roomTypes){
+				data += "<li class=\"rooms\">" +
+					$"{roomTyp.ToHtml()}" +
+					$"<script>roomTypes.set(\"{roomTyp.typeName}\",{roomTyp.cost});</script>" +
+					"</li>\n";
+			}
+			data += "</ul>";
+			// adding booking stuff
+			data +=
+			"<form method=\"post\" role=\"form\" action=\"/try-book\">" +
+				"<label for=\"from\">Datum von:</label>" +
+				"<input type=\"date\" id=\"from\" name=\"from\"></input><br>" +
+				"<label for=\"till\">Datum bis:</label>" +
+				"<input type=\"date\" id=\"till\" name=\"till\"></input><br>" +
+				"<label for=\"mail\">E-Mail:</label>" +
+				"<input type=\"email\" id=\"mail\" name=\"mail\"></input><br>" +
+				"<label for=\"pwd\">Passwort:</label>" +
+				"<input type=\"password\" id=\"pwd\" name=\"pwd\"></input><br>" +
+				"<div class=\"flex-down\">" +
+				"<div id=\"costing\">Kostet: $0</div>" +
+				"<button>Buchen!</button>";
+			foreach(RoomInfos roomTyp in service.roomTypes){
+				data += "<input type=\"hidden\""+
+					$"name=\"snd-{roomTyp.typeName}\"" +
+					$"id=\"snd-{roomTyp.typeName}\">";
+			}
+			data += "</div>" +
+			"</form>";
+			data += 
+			"	</main></body></html>";
+			var bytes = Encoding.UTF8.GetBytes(data);
+			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+		});
+		service.server.Handles(
+				path => (path.StartsWith("/images/") ||
+					 path.StartsWith("/scripts/")) &&
+					(!path.Contains("..")),
+		async (context, cancellationToken) => {
+			//Console.WriteLine(context.Request.RawUrl);
+			using var fileStream = new FileStream(
+				$".{context.Request.RawUrl}", FileMode.Open
+			);
+			await fileStream.CopyToAsync(
+				context.Response.OutputStream, 81920,
+				cancellationToken
+			).ConfigureAwait(false);
+		});
 		// register local-files
 		service.server.HandlesStaticFile("/main.css", "web-files/main.css");
 		service.server.HandlesStaticFile("/", "web-files/index.html");
 		service.server.HandlesStaticFile("/food", "web-files/food.html");
-		service.server.HandlesStaticFile("/book", "web-files/book.html");
 		service.server.HandlesStaticFile("/location", "web-files/location.html");
 		service.server.HandlesStaticFile("/contact", "web-files/contact.html");
 		service.server.HandlesStaticFile("/login", "web-files/login.html"); // move to handler!
@@ -196,91 +344,4 @@ public class Program{
 		// stopping
 		service.Stop();
 	}
-	/*
-	public static void Main(string []arguments){
-		// MySql connection
-		con = new MySqlConnection(sqlServer);
-		con.Open();
-		Console.WriteLine($"MySQL version : {con.ServerVersion}");
-		// webserver
-		// let's find an available port on the local machine, which is useful for unit tests
-		var testUrl = server.AddAvailableLocalPrefix();
-		Console.WriteLine(testUrl);
-		// register our routes and handlers
-		server.Handles(str => (str == "/print" || str.StartsWith("/print/")),async (context,cancellationToken) => {
-				// print some debug info
-			context.Response.ContentEncoding = Encoding.UTF8;
-			context.Response.ContentType = "text/plain";
-			context.Request.GetClientCertificate(); // this has to be done!
-			var bytes = Encoding.UTF8.GetBytes(ConcatAllTypes(context.Request));
-			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-		});
-		server.Handles(str => (str == "/tables" || str.StartsWith("/tables/")),async (context,cancellationToken) => {
-			context.Response.ContentEncoding = Encoding.UTF8;
-			context.Response.ContentType = "text/plain";
-			var cmd = new MySqlCommand();
-			cmd.Connection = con;
-			cmd.CommandText = "SHOW TABLES";
-			MySqlDataReader rdr = cmd.ExecuteReader();
-			string data = "Tables:\n";
-			while(rdr.Read()){
-				data += $"{rdr.GetString(0)}\n";
-			}
-			byte[] bytes = Encoding.UTF8.GetBytes(data);
-			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-		});
-		server.HandlesPath("/status", async (context, cancellationToken) => {
-				// print current status
-			context.Response.ContentEncoding = Encoding.UTF8;
-			context.Response.ContentType = "text/html";
-			//TimeSpan upTime = DateTime.Now - serverStartTime;
-			var bytes = Encoding.UTF8.GetBytes($"<html><body>"+
-					$"MySQL version : {con.ServerVersion}<br>"+
-					$"time at request : {DateTime.Now.ToString("HH:mm:ss")}<br>" + 
-					//$"up-time : {upTime}s<br>"+
-					$"up-time : {DateTime.Now - serverStartTime}s<br>"+
-					"Current status : Running<br><br>"+
-					// and some links
-					"<a href=\"/stop\">Stop Server</a><br>"+
-					"<a href=\"https://github.com/javidsho/LightHTTP\">LightHttp</a></body></html>");
-			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-		});
-		server.HandlesPath("/stop", async (context, cancellationToken) => {
-				// stops the server (you can also use Ctrl-C in the Console)
-			context.Response.ContentEncoding = Encoding.UTF8;
-			context.Response.ContentType = "text/plain";
-			var bytes = Encoding.UTF8.GetBytes($"Stopping!");
-			keepAlive = false;
-			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-		});
-		server.HandlesStaticFile("/main.css", "web-files/main.css");
-		server.HandlesStaticFile("/", "web-files/index.html");
-		server.HandlesStaticFile("/food", "web-files/food.html");
-		server.HandlesStaticFile("/book", "web-files/book.html");
-		server.HandlesStaticFile("/location", "web-files/location.html");
-		server.HandlesStaticFile("/contact", "web-files/contact.html");
-
-		// finally start serving
-		server.Start();
-		// https://medium.com/@rainer_8955/gracefully-shutdown-c-apps-2e9711215f6d
-		Console.CancelKeyPress += (_, ea) =>
-		{
-			// Tell .NET to not terminate the process imidieatly
-			ea.Cancel = true;
-
-			Console.WriteLine("Received SIGINT (Ctrl+C)");
-			keepAlive = false;
-		};
-
-		// and call server.Dispose() when done
-		while(keepAlive){
-			Thread.Sleep(100);
-		}
-		// kill Webserver
-		server.Dispose();
-		// kill MySql
-		con.Close();
-	}
-*/
-
 }
