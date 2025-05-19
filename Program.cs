@@ -201,11 +201,13 @@ public class Program{
 			MySqlDataReader pref = cmd.ExecuteReader();
 			pref.Read();
 			data +=
-			$"Hello {pref.GetString(1)} {pref.GetString(2)}<br>" +
+			$"<div id=\"account\">Hello {pref.GetString(1)} {pref.GetString(2)}<br>" +
 			$"E-Mail: {pref.GetString(3)}<br>" +
 			$"Geboren Am: {pref.GetDateTime(4).ToString(Servicer.ddmmyyyy)}<br>" +
 			$"Account_ID:{pref.GetInt32(0)}<br>" +
-			$"Erstellt am:{pref.GetDateTime(5).ToString($"{Servicer.ddmmyyyy} {Servicer.hhmmss}")}</div>";
+			$"Erstellt am:{pref.GetDateTime(5).ToString($"{Servicer.ddmmyyyy} {Servicer.hhmmss}")}<br>" +
+			$"<button onclick=\"accountStartEdit()\">Editiere</button></div>" +
+			"<script src=\"/scripts/account-edit.js\"></script></div>";
 			pref.Close();
 			pref.Dispose();
 			cmd.CommandText = "SELECT * FROM Buchungen";
