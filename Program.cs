@@ -14,6 +14,10 @@ public class Program{
 	public static DateTime serverStartTime;// = DateTime.Now;
 	public static Servicer service;
 	public static bool keepAlive = true;
+	public const string docStart = "<!DOCTYPE html><html><head>" +
+		"<link rel=\"stylesheet\" href=\"main.css\">" +
+		"</head><body>";
+	public const string docEnd = "</body></html>";
 	
 	public static string ConcatAllTypes(object obj){
 		// name
@@ -121,12 +125,12 @@ public class Program{
 					"Current status : Running<br><br>"+
 					// and some links
 					"<a href=\"/stop\">Stop Server</a><br>"+
-					"<a href=\"https://github.com/javidsho/LightHTTP\">LightHttp</a></body></html>");
+					"<a href=\"https://github.com/javidsho/LightHTTP\">LightHttp</a>" + Program.docEnd);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
 		service.server.HandlesPath("/try-register", async (context, cancellationToken) => {
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
-			string data = "<!DOCTYPE html><html><body>";
+			string data = Program.docStart;
 			int retVal = service.TryRegisterUser(hidParam);
 			if(retVal == 0){
 				data += "registering successfull for:<br>";
@@ -145,7 +149,7 @@ public class Program{
 				        "\"window.location.href='/register'\",2500"+
 					");</script>";
 			}
-			data += "</body></html>";
+			data += Program.docEnd;
 			context.Response.ContentType = "text/html";
 			var bytes = Encoding.UTF8.GetBytes(data);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
@@ -153,7 +157,7 @@ public class Program{
 		service.server.HandlesPath("/try-login", async (context, cancellationToken) => {
 			//try{
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
-			string data = "<!DOCTYPE html><html><body>";
+			string data = Program.docStart;
 			bool retVal = service.TryLogin(hidParam);
 			if(retVal){
 				data += "success!";
@@ -177,7 +181,7 @@ public class Program{
 		async (context, cancellationToken) => {
 			try{
 			string tok = context.Request.RawUrl.Substring(9);
-			string data = "<!DOCTYPE html><html><body>";
+			string data = Program.docStart;
 			int accId;
 			bool correctToken = service.CheckToken(tok,out accId);
 			if(!correctToken){
@@ -191,9 +195,9 @@ public class Program{
 			data += "<div>"+
 			$"Hello {pref.GetString(1)} {pref.GetString(2)}<br>" +
 			$"E-Mail: {pref.GetString(3)}<br>" +
-			$"Geboren Am: {pref.GetDateTime(4).ToString("dd.MM.yyyy")}<br>" +
+			$"Geboren Am: {pref.GetDateTime(4).ToString(Servicer.ddmmyyyy)}<br>" +
 			$"Account_ID:{pref.GetInt32(0)}<br>" +
-			$"Erstellt am:{pref.GetDateTime(5).ToString("dd.MM.yyyy HH:mm:ss")}</div>";
+			$"Erstellt am:{pref.GetDateTime(5).ToString($"{Servicer.ddmmyyyy} {Servicer.hhmmss}")}</div>";
 			pref.Close();
 			pref.Dispose();
 			cmd.CommandText = "SELECT * FROM Buchungen";
@@ -220,8 +224,8 @@ public class Program{
 				addLaterData = "";
 				while(pref.Read()){
 					kosten += (decimal)pref.GetFloat(0);
-					addLaterData += $"Raum {pref.GetString(2)}: " +
-						$"{pref.GetInt32(3)}" +
+					addLaterData += $"Raum-{pref.GetString(2)}: " +
+						$"{pref.GetInt32(3)} mit" +
 						$"{pref.GetInt32(1)} Betten" +
 						$"${pref.GetFloat(0)}<br>";
 				}
@@ -238,7 +242,7 @@ public class Program{
 			}
 			cmd.Dispose();
 			data += "</div>";
-			data += "</body></html>";
+			data += Program.docEnd;
 			var bytes = Encoding.UTF8.GetBytes(data);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 			}catch(Exception e){Console.WriteLine(e.ToString());}
@@ -246,7 +250,7 @@ public class Program{
 		service.server.HandlesPath("/try-book", async (context, cancellationToken) => {
 				try{
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
-			string data = "<!DOCTYPE html><html><body>";
+			string data = Program.docStart;
 			bool retVal = service.TryLogin(hidParam);
 			if(retVal){
 				data += "login successful!";
@@ -276,7 +280,7 @@ public class Program{
 				int wantingCnt = Convert.ToInt32(
 						hidParam[$"snd-{rmInf.typeName}"]
 						);
-				cmd.CommandText = $"SELECT COUNT(*) FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.BuchungsID WHERE b.BuchungStart > \"{starting.ToString("yyyy-MM-dd")}\" AND b.BuchungEnde < \"{ending.ToString("yyyy-MM-dd")}\") AND RaumTyp =\"{rmInf.typeName}\" ";
+				cmd.CommandText = $"SELECT COUNT(*) FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.BuchungsID WHERE b.BuchungStart > \"{starting.ToString(Servicer.yyyymmdd)}\" AND b.BuchungEnde < \"{ending.ToString(Servicer.yyyymmdd)}\") AND RaumTyp =\"{rmInf.typeName}\" ";
 				pref = cmd.ExecuteReader();
 				pref.Read();
 				int count = pref.GetInt32(0);
@@ -290,8 +294,8 @@ public class Program{
 				goto DISPOSE_CMD_BOOK;
 			}
 			string sanMail = Servicer.Sanitise(hidParam["mail"],1);
-			cmd.CommandText = $"INSERT INTO Buchungen(Kunden_ID,BuchungsDatum,BuchungStart,BuchungEnde) VALUES((SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{sanMail}\"),\"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}\"," + 
-			$"\"{starting.ToString("yyyy-MM-dd")}\",\"{ending.ToString("yyyy-MM-dd")}\")";
+			cmd.CommandText = $"INSERT INTO Buchungen(Kunden_ID,BuchungsDatum,BuchungStart,BuchungEnde) VALUES((SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{sanMail}\"),\"{DateTime.Now.ToString($"{Servicer.yyyymmdd} {Servicer.hhmmss}")}\"," + 
+			$"\"{starting.ToString(Servicer.yyyymmdd)}\",\"{ending.ToString(Servicer.yyyymmdd)}\")";
 			cmd.ExecuteNonQuery();
 			cmd.CommandText = $"SELECT MAX(BuchungsID) FROM Buchungen WHERE Kunden_ID = (SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{sanMail}\")";
 			pref = cmd.ExecuteReader();
@@ -300,7 +304,7 @@ public class Program{
 			pref.Dispose();
 			pref.Close();
 			foreach(RoomInfos rmInf in service.roomTypes){
-				cmd.CommandText = $"SELECT Raum_ID FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.BuchungsID WHERE b.BuchungStart > \"{starting.ToString("yyyy-MM-dd")}\" AND b.BuchungEnde < \"{ending.ToString("yyyy-MM-dd")}\") AND RaumTyp =\"{rmInf.typeName}\" ";
+				cmd.CommandText = $"SELECT Raum_ID FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.BuchungsID WHERE b.BuchungStart > \"{starting.ToString(Servicer.yyyymmdd)}\" AND b.BuchungEnde < \"{ending.ToString(Servicer.yyyymmdd)}\") AND RaumTyp =\"{rmInf.typeName}\" ";
 				pref = cmd.ExecuteReader();
 				List<int> roomIds = new List<int>();
 				while(pref.Read())
@@ -318,28 +322,25 @@ public class Program{
 DISPOSE_CMD_BOOK:
 			cmd.Dispose();
 END_TRY_BOOK:
-			data += "</body></html>";
+			data += Program.docEnd;
 			var bytes = Encoding.UTF8.GetBytes(data);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 			}catch(Exception e){Console.WriteLine(e.ToString());}
 		});
 		// from service.server.HandlesStaticFile("/book", "web-files/book.html");
 		service.server.HandlesPath("/book", async (context, cancellationToken) => {
-			string data = "<!DOCTYPE html><html>" +
-			"<head>" +
-			"	<link rel=\"stylesheet\" href=\"main.css\"/>" +
-			"	<script src=\"/scripts/booking.js\"></script>" +
-			"</head><body>" +
-			"	<div class=\"navbar\">" +
-			"		<a href=\"/\">Home</a>" +
-			"		<a href=\"/book\">Buchen</a>" +
-			"		<a href=\"/food\">Restaurante</a>" +
-			"		<a href=\"/location\">Lageplan</a>" +
-			"		<a href=\"/contact\">Ansprechpartner</a>" +
-			"		<a class=\"right\" href=\"/login\">Login</a>" +
-			"	</div>" +
-			"	<main class=\"main\">" +
-			"		<h1>Zimmer buchen</h1>";
+			string data = Program.docStart +
+			"<script src=\"/scripts/booking.js\"></script>" +
+			"<div class=\"navbar\">" +
+			"	<a href=\"/\">Home</a>" +
+			"	<a href=\"/book\">Buchen</a>" +
+			"	<a href=\"/food\">Restaurante</a>" +
+			"	<a href=\"/location\">Lageplan</a>" +
+			"	<a href=\"/contact\">Ansprechpartner</a>" +
+			"	<a class=\"right\" href=\"/login\">Login</a>" +
+			"</div>" +
+			"<main class=\"main\">" +
+			"	<h1>Zimmer buchen</h1>";
 			//"		%%"; // insert suff here!
 			// insert auto creation of stuff here!
 			data += "<ul>";
@@ -372,7 +373,7 @@ END_TRY_BOOK:
 			data += "</div>" +
 			"</form>";
 			data += 
-			"	</main></body></html>";
+			"	</main>" + Program.docEnd;
 			var bytes = Encoding.UTF8.GetBytes(data);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});

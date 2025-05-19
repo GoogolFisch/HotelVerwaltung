@@ -17,6 +17,9 @@ public class Servicer{
 
 	public const string tokenRandomData = "stringRandomData";
 	public const string sqlServerString = @"server=localhost;userid=hotelServer;password=1234;database=hotelServer";
+	public const string yyyymmdd = "yyyy-MM-dd";
+	public const string ddmmyyyy = "dd.MM.yyyy";
+	public const string hhmmss = "HH:mm:ss";
 	public LightHttpServer server;// = new LightHttpServer(); // https://github.com/javidsho/LightHTTP.git
 	//public bool shouldKillAll;// = false;
 	//public DateTime serverStartTime;// = DateTime.Now;
@@ -333,7 +336,7 @@ public class Servicer{
 				"eMail,GeborenAm,password) VALUES (" +
 				$"\"{fName}\"," + 
 				$"\"{lName}\"," + 
-				$"\"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}\"," + 
+				$"\"{DateTime.Now.ToString($"{Servicer.yyyymmdd} {Servicer.hhmmss}")}\"," + 
 				$"\"{eMail}\"," + 
 				$"\"{birth}\"," + 
 				$"\"{pwd}\"" + 
@@ -370,7 +373,7 @@ public class Servicer{
 		MySqlCommand cmd = new MySqlCommand($"SELECT password,Kunden_ID FROM Kunden WHERE eMail = \"{accountEMail}\"",con);
 		MySqlDataReader pref = cmd.ExecuteReader();
 		pref.Read();
-		string base64Hash = $"{pref.GetString(0)}-{accountEMail}-{DateTime.Now.ToString("yyyy-MM-dd")}-{tokenRandomData}";
+		string base64Hash = $"{pref.GetString(0)}-{accountEMail}-{DateTime.Now.ToString(Servicer.yyyymmdd)}-{tokenRandomData}";
 		int accountId = pref.GetInt32(1);
 		pref.Close();
 		pref.Dispose();
@@ -382,7 +385,7 @@ public class Servicer{
 		MySqlCommand cmd = new MySqlCommand($"SELECT password,eMail FROM Kunden WHERE Kunden_ID = {accountId}",con);
 		MySqlDataReader pref = cmd.ExecuteReader();
 		pref.Read();
-		string base64Hash = $"{pref.GetString(0)}-{pref.GetString(1)}-{DateTime.Now.ToString("yyyy-MM-dd")}-{tokenRandomData}";
+		string base64Hash = $"{pref.GetString(0)}-{pref.GetString(1)}-{DateTime.Now.ToString(Servicer.yyyymmdd)}-{tokenRandomData}";
 		pref.Close();
 		pref.Dispose();
 		cmd.Dispose();
