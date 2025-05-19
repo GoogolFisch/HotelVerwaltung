@@ -15,9 +15,17 @@ public class Program{
 	public static Servicer service;
 	public static bool keepAlive = true;
 	public const string docStart = "<!DOCTYPE html><html><head>" +
-		"<link rel=\"stylesheet\" href=\"main.css\">" +
-		"</head><body>";
-	public const string docEnd = "</body></html>";
+		"<link rel=\"stylesheet\" href=\"/main.css\">" +
+		"</head><body>" +
+		"<div class=\"navbar\">" +
+		"	<a href=\"/\">Home</a>" +
+		"	<a href=\"/book\">Buchen</a>" +
+		"	<a href=\"/food\">Restaurante</a>" +
+		"	<a href=\"/location\">Lageplan</a>" +
+		"	<a href=\"/contact\">Ansprechpartner</a>" +
+		"	<a class=\"right\" href=\"/login\">Login</a>" +
+		"</div><main>";
+	public const string docEnd = "</main></body></html>";
 	
 	public static string ConcatAllTypes(object obj){
 		// name
@@ -192,7 +200,7 @@ public class Program{
 			MySqlCommand cmd = new MySqlCommand($"SELECT Kunden_ID, VorName, NachName, eMail, GeborenAm, ErstellungsDatum From Kunden Where Kunden_ID = {accId}",service.con);
 			MySqlDataReader pref = cmd.ExecuteReader();
 			pref.Read();
-			data += "<div>"+
+			data +=
 			$"Hello {pref.GetString(1)} {pref.GetString(2)}<br>" +
 			$"E-Mail: {pref.GetString(3)}<br>" +
 			$"Geboren Am: {pref.GetDateTime(4).ToString(Servicer.ddmmyyyy)}<br>" +
@@ -214,25 +222,27 @@ public class Program{
 			}
 			pref.Close();
 			pref.Dispose();
-			data += "<div>";
+			data += "<div style=\"width:fit-content\">";
 			decimal kosten;
 			string addLaterData;
 			foreach(BookingInfo bkinf in bkInfos){
 				kosten = 0m;
 				cmd.CommandText = $"SELECT r.Kosten,r.anzBetten,r.RaumTyp,r.ZimmerNum FROM Raum r JOIN ZimmerBuchung zb ON r.Raum_ID = zb.Raum_ID WHERE zb.Buchungs_ID = {bkinf.bookingId}";
 				pref = cmd.ExecuteReader();
-				addLaterData = "";
+				addLaterData = "<ul>";
 				while(pref.Read()){
 					kosten += (decimal)pref.GetFloat(0);
-					addLaterData += $"Raum-{pref.GetString(2)}: " +
-						$"{pref.GetInt32(3)} mit" +
-						$"{pref.GetInt32(1)} Betten" +
-						$"${pref.GetFloat(0)}<br>";
+					addLaterData += $"<li>Raum-{pref.GetString(2)}: " +
+						$"{pref.GetInt32(3)} " +
+						$"mit {pref.GetInt32(1)} Betten -> " +
+						$"${pref.GetFloat(0)}</li>";
 				}
-				data += $"{bkinf.bookingDate} " +
-					$"{bkinf.bookingStart} - {bkinf.bookingEnd}" +
-					$" | ${kosten}<br>";
-				data += "<div>" + 
+				addLaterData += "</ul>";
+				data +=
+				"<div class=\"boxing\">" + 
+				$"Gebucht am: {bkinf.bookingDate.ToString($"{Servicer.ddmmyyyy} {Servicer.hhmmss}")}<br>" +
+				$"{bkinf.bookingStart.ToString(Servicer.ddmmyyyy)} - {bkinf.bookingEnd.ToString(Servicer.ddmmyyyy)}" +
+				$" | ${kosten}" +
 				$"{addLaterData}" +
 				"</div>";
 
@@ -241,7 +251,6 @@ public class Program{
 				data += $"";
 			}
 			cmd.Dispose();
-			data += "</div>";
 			data += Program.docEnd;
 			var bytes = Encoding.UTF8.GetBytes(data);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
@@ -331,14 +340,6 @@ END_TRY_BOOK:
 		service.server.HandlesPath("/book", async (context, cancellationToken) => {
 			string data = Program.docStart +
 			"<script src=\"/scripts/booking.js\"></script>" +
-			"<div class=\"navbar\">" +
-			"	<a href=\"/\">Home</a>" +
-			"	<a href=\"/book\">Buchen</a>" +
-			"	<a href=\"/food\">Restaurante</a>" +
-			"	<a href=\"/location\">Lageplan</a>" +
-			"	<a href=\"/contact\">Ansprechpartner</a>" +
-			"	<a class=\"right\" href=\"/login\">Login</a>" +
-			"</div>" +
 			"<main class=\"main\">" +
 			"	<h1>Zimmer buchen</h1>";
 			//"		%%"; // insert suff here!
