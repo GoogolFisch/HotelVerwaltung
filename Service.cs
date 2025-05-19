@@ -282,6 +282,33 @@ public class Servicer{
 		}
 		return lookup;
 	}
+	public static String GetInputStream(HttpListenerRequest req){
+		if(!req.HasEntityBody)
+			return "";
+		Stream body = req.InputStream;
+		StreamReader reader = new StreamReader(body,req.ContentEncoding);
+		String str = reader.ReadToEnd();
+		reader.Close();
+
+		body.Close();
+		body.Dispose();
+		return str;
+	}
+	public static Dictionary<String,String> GetHiddenParameters(HttpListenerRequest req){
+		Dictionary<String,String> lookup = new Dictionary<String,String>();
+		String data = GetInputStream(req);
+		
+		// The ParseQueryString method will parse the query string and return a NameValueCollection
+		var paramsCollection = HttpUtility.ParseQueryString(data);
+
+		// The foreach loop will iterate over the params collection and print the key and value for each param
+		foreach (var key in paramsCollection.AllKeys)
+		{
+			//Console.WriteLine($"Key: {key} => Value: {paramsCollection[key]}");
+			lookup.Add(key,paramsCollection[key]);
+		}
+		return lookup;
+	}
 
 	public void Start(){
 		// start the web-server
