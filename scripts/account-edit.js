@@ -16,9 +16,15 @@ function accountStartEdit(){
 		<label for="lname">Nachname:</label>
 		<input type="text" id="lname" name="lname" value="${lastName}"></input><br>
 		<label for="mail">E-Mail:</label>
-		<input type="text" id="mail" name="mail" value="${email}"></input><br>
+		<input type="email" id="mail" name="mail" value="${email}"></input><br>
 		<label for="birth">E-Mail:</label>
-		<input type="text" id="birth" name="birth" value="${birth}"></input><br>
+		<input type="date" id="birth" name="birth" value="${birth}"></input><br>
+		<label for="tpwd">altes Password</label>
+		<input type="password" id="tpwd" name="pwd"></input><br>
+		<label for="n1pwd">neues Password</label>
+		<input type="password" id="n1pwd" name="npwd"></input><br>
+		<label for="n2pwd">erneut Password</label>
+		<input type="password" id="n2pwd" name="n2pwd"></input><br>
 		<button>Veraender!</button>
 		</form>
 		<button onclick=\"accountCancelEdit()\">Abbrechen!</button>`;

@@ -196,8 +196,38 @@ public class Program{
 				context.Response.StatusCode = 404;
 				return;
 			}
+			MySqlCommand cmd;
+			if(context.Request.HttpMethod == "POST"){
+				// TODO split into seperate functions!
+				var hidParam = Servicer.GetHiddenParameters(context.Request);
+				bool retVal = service.TryLogin(hidParam);
+				if(!retVal){
+					data += "Not correct password!";
+					goto ACCOUNT_POST_END;
+				}
+				string fName = Servicer.Sanitise(hidParam["fname"]);
+				string lName = Servicer.Sanitise(hidParam["lname"]);
+				string eMail = Servicer.Sanitise(hidParam["mail"],1);
+				string birth = Servicer.Sanitise(hidParam["birth"],1);
+				string newpwd = Servicer.EncodePassword(hidParam["npwd"]);
+				string n2pwd = Servicer.EncodePassword(hidParam["n2pwd"]);
+				if(newpwd != n2pwd){
+					data += "Password don't match!";
+					goto ACCOUNT_POST_END;
+				}
+				if(hidParam["npwd"] != ""){
+					newpwd = Servicer.EncodePassword(hidParam["pwd"]);
+				}
+				cmd = new MySqlCommand($"UPDATE Kunden SET VorName=\"{fName}\",NachName=\"{lName}\",eMail=\"{eMail}\",GeborenAm=\"{birth}\",password=\"{newpwd}\" WHERE Kunden_ID = ${accId}",service.con);
+				cmd.ExecuteNonQuery();
+
+				data += "Changed stuff!";
+				cmd.Dispose();
+ACCOUNT_POST_END:
+				hidParam.Clear();
+			}
 			//Console.WriteLine(context.Request.RawUrl);
-			MySqlCommand cmd = new MySqlCommand($"SELECT Kunden_ID, VorName, NachName, eMail, GeborenAm, ErstellungsDatum From Kunden Where Kunden_ID = {accId}",service.con);
+			cmd = new MySqlCommand($"SELECT Kunden_ID, VorName, NachName, eMail, GeborenAm, ErstellungsDatum From Kunden Where Kunden_ID = {accId}",service.con);
 			MySqlDataReader pref = cmd.ExecuteReader();
 			pref.Read();
 			data +=
