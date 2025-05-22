@@ -8,7 +8,9 @@ function accountStartEdit(){
 	let firstName = names[1];
 	let lastName = names[2];
 	let email = dat[1].split(": ")[1];
-	let birth = dat[2].split(": ")[1];
+	let birth = dat[2].split(": ")[1].split(".");
+	birth.reverse();
+	birth = birth.join("-");
 	console.log(firstName + " " + lastName + "\n" + email + " " + birth);
 	accInfo.innerHTML = `<form method="post">
 		<label for="fname">Vorname:</label>

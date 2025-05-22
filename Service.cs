@@ -136,9 +136,6 @@ public class Servicer{
 	}
 	// remove all potentially dangerous characters from an string!
 	public static string Sanitise(string inStr){
-		return Sanitise(inStr,0);
-	}
-	public static string Sanitise(string inStr,int strict){
 		/*
 		string outStr = inStr;
 		foreach(char nogoChar in "/'.\"\\$"){
@@ -148,6 +145,7 @@ public class Servicer{
 		foreach(char inChar in inStr){
 			if(inChar == ' ')
 				outStr += inChar;
+			/*
 			else if(strict > 0){
 				// maybe add " -> %22 ...
 				if(inChar == '!')
@@ -159,15 +157,22 @@ public class Servicer{
 				else if(inChar >= 'a' && inChar <= '~')
 					outStr += inChar;
 				// idk what can happen here!
-				else if(strict > 1 && inChar >= (char)0x80)
-					outStr += inChar; 
 			}
 			else if(inChar >= '0' && inChar <= '9')
 				outStr += inChar;
-			else if(inChar >= 'A' && inChar <= 'Z')
+			else if(inChar >= '@' && inChar <= 'Z')
 				outStr += inChar;
 			else if(inChar >= 'a' && inChar <= 'z')
 				outStr += inChar;
+				*/
+			else if(inChar >= '(' && inChar <= '~')
+				outStr += inChar;
+			else{
+				byte[] charCode = Encoding.UTF8.GetBytes(new char[]{inChar});
+				foreach(byte chh in charCode)
+					// each char in hex
+					outStr += $"%{chh:X}";
+			}
 		}
 		return outStr.Trim();
 	}
@@ -283,7 +288,8 @@ public class Servicer{
 		foreach (var key in paramsCollection.AllKeys)
 		{
 			//Console.WriteLine($"Key: {key} => Value: {paramsCollection[key]}");
-			lookup.Add(key,paramsCollection[key]);
+			// I don't like to sanitise it more...
+			lookup.Add(key,Sanitise(paramsCollection[key]));
 		}
 		return lookup;
 	}
@@ -310,10 +316,10 @@ public class Servicer{
 		return Convert.ToBase64String(data,0,32);
 	}
 	public int TryRegisterUser(Dictionary<string,string> lookup){
-		string fName = Sanitise(lookup["fname"]);
-		string lName = Sanitise(lookup["lname"]);
-		string eMail = Sanitise(lookup["mail"],1);
-		string birth = Sanitise(lookup["birth"],1);
+		string fName = lookup["fname"];
+		string lName = lookup["lname"];
+		string eMail = lookup["mail"];
+		string birth = lookup["birth"];
 		string pwd = EncodePassword(lookup["pwd"]);
 		if(fName is null || fName == "") return 2;
 		if(lName is null || lName == "") return 2;
@@ -348,7 +354,7 @@ public class Servicer{
 		return gotContent ? 1 : 0; // 0 -> succ | 1 -> fail
 	}
 	public bool TryLogin(Dictionary<string,string> lookup){
-		string eMail = Sanitise(lookup["mail"],1);
+		string eMail = lookup["mail"];
 		string pwd = EncodePassword(lookup["pwd"]);
 		if(eMail is null || eMail == "") return false;
 		if(pwd is null || eMail == "") return false;
@@ -369,7 +375,7 @@ public class Servicer{
 		return correct;
 	}
 	public string GetTokenFor(string accountEMail){
-		accountEMail = Sanitise(accountEMail,1);
+		accountEMail = accountEMail;
 		MySqlCommand cmd = new MySqlCommand($"SELECT password,Kunden_ID FROM Kunden WHERE eMail = \"{accountEMail}\"",con);
 		MySqlDataReader pref = cmd.ExecuteReader();
 		pref.Read();

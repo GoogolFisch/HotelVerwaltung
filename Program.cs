@@ -79,6 +79,8 @@ public class Program{
 			context.Request.GetClientCertificate(); // this has to be done!
 			string data = ConcatAllTypes(context.Request);
 			data += "===========\n";
+			data += ConcatAllTypes(context.Response);
+			data += "===========\n";
 			data += ConcatAllTypes(context.Request.Cookies);
 			data += "??\n";
 			foreach(var cookie in context.Request.Cookies){
@@ -97,7 +99,7 @@ public class Program{
 			context.Response.ContentEncoding = Encoding.UTF8;
 			context.Response.ContentType = "text/plain";
 			string data;
-			string tblName = Servicer.Sanitise(context.Request.RawUrl.Substring(7));
+			string tblName = context.Request.RawUrl.Substring(7);
 			Console.WriteLine($"<{tblName}>");
 			if(tblName == ""){
 				data = "Tables:\n";
@@ -193,7 +195,7 @@ public class Program{
 			int accId;
 			bool correctToken = service.CheckToken(tok,out accId);
 			if(!correctToken){
-				context.Response.StatusCode = 404;
+				context.Response.StatusCode = 403;
 				return;
 			}
 			MySqlCommand cmd;
@@ -205,22 +207,24 @@ public class Program{
 					data += "Not correct password!";
 					goto ACCOUNT_POST_END;
 				}
-				string fName = Servicer.Sanitise(hidParam["fname"]);
-				string lName = Servicer.Sanitise(hidParam["lname"]);
-				string eMail = Servicer.Sanitise(hidParam["mail"],1);
-				string birth = Servicer.Sanitise(hidParam["birth"],1);
+				string fName = hidParam["fname"];
+				string lName = hidParam["lname"];
+				string eMail = hidParam["mail"];
+				string birth = hidParam["birth"];
 				string newpwd = Servicer.EncodePassword(hidParam["npwd"]);
 				string n2pwd = Servicer.EncodePassword(hidParam["n2pwd"]);
 				if(newpwd != n2pwd){
 					data += "Password don't match!";
 					goto ACCOUNT_POST_END;
 				}
-				if(hidParam["npwd"] != ""){
+				if(hidParam["npwd"] == ""){
 					newpwd = Servicer.EncodePassword(hidParam["pwd"]);
 				}
-				cmd = new MySqlCommand($"UPDATE Kunden SET VorName=\"{fName}\",NachName=\"{lName}\",eMail=\"{eMail}\",GeborenAm=\"{birth}\",password=\"{newpwd}\" WHERE Kunden_ID = ${accId}",service.con);
+				cmd = new MySqlCommand($"UPDATE Kunden SET VorName=\"{fName}\",NachName=\"{lName}\",eMail=\"{eMail}\",GeborenAm=\"{birth}\",password=\"{newpwd}\" WHERE Kunden_ID = {accId}",service.con);
 				cmd.ExecuteNonQuery();
 
+				// don't get locked out!
+				context.Response.RedirectLocation = $"/account/{service.GetTokenFor(accId)}";
 				data += "Changed stuff!";
 				cmd.Dispose();
 ACCOUNT_POST_END:
@@ -334,7 +338,7 @@ ACCOUNT_POST_END:
 				data += "Sie haben mehr Raeume gebucht, als moeglich sind!";
 				goto DISPOSE_CMD_BOOK;
 			}
-			string sanMail = Servicer.Sanitise(hidParam["mail"],1);
+			string sanMail = hidParam["mail"];
 			cmd.CommandText = $"INSERT INTO Buchungen(Kunden_ID,BuchungsDatum,BuchungStart,BuchungEnde) VALUES((SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{sanMail}\"),\"{DateTime.Now.ToString($"{Servicer.yyyymmdd} {Servicer.hhmmss}")}\"," + 
 			$"\"{starting.ToString(Servicer.yyyymmdd)}\",\"{ending.ToString(Servicer.yyyymmdd)}\")";
 			cmd.ExecuteNonQuery();
