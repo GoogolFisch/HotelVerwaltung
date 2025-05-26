@@ -151,6 +151,7 @@ public class Program{
 		service.Stop();
 	} // ""
 	private static async void HandelHttpPrint(HttpListenerContext context,CancellationToken cancellationToken){
+		// setup stuff
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/plain";
 		context.Request.GetClientCertificate(); // this has to be done!
@@ -191,6 +192,8 @@ public class Program{
 		return;
 	}
 	private static async void HandelHttpRegister(HttpListenerContext context,CancellationToken cancellationToken){
+		context.Response.ContentEncoding = Encoding.UTF8;
+		context.Response.ContentType = "text/html";
 		if(context.Request.HttpMethod == "POST"){
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
 			string document = Program.docStart;
@@ -220,6 +223,8 @@ public class Program{
 		}
 	}
 	private static async void HandelHttpLogin(HttpListenerContext context,CancellationToken cancellationToken){
+		context.Response.ContentEncoding = Encoding.UTF8;
+		context.Response.ContentType = "text/html";
 		//try{
 		if(context.Request.HttpMethod == "POST"){
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
@@ -244,6 +249,40 @@ public class Program{
 		}
 		//}catch(Exception e){Console.WriteLine(e.ToString());}
 	}
+	private static void HandelPostAccount(ref string document,HttpListenerContext context,int accId){
+		var hidParam = Servicer.GetHiddenParameters(context.Request);
+		// try login to validate
+		bool retVal = service.TryLogin(hidParam);
+		if(!retVal){
+			document += "Not correct password!";
+			//goto ACCOUNT_POST_END;
+			return;
+		}
+		string fName = hidParam["fname"];
+		string lName = hidParam["lname"];
+		string eMail = hidParam["mail"];
+		string birth = hidParam["birth"];
+		// check if both are correct
+		string newpwd = Servicer.EncodePassword(hidParam["npwd"]);
+		string n2pwd = Servicer.EncodePassword(hidParam["n2pwd"]);
+		if(newpwd != n2pwd){
+			document += "Password don't match!";
+			return;
+		}
+		// default (old) password
+		if(hidParam["npwd"] == ""){
+			newpwd = Servicer.EncodePassword(hidParam["pwd"]);
+		}
+		// update
+		MySqlCommand cmd = new MySqlCommand($"UPDATE Kunden SET VorName=\"{fName}\",NachName=\"{lName}\",eMail=\"{eMail}\",GeborenAm=\"{birth}\",password=\"{newpwd}\" WHERE Kunden_ID = {accId}",service.con);
+		cmd.ExecuteNonQuery();
+
+		// don't get locked out!
+		context.Response.RedirectLocation = $"/account/{service.GetTokenFor(accId)}";
+		// indicate it worked
+		document += "Changed stuff!";
+		cmd.Dispose();
+	}
 	private static async void HandelHttpAccount(HttpListenerContext context,CancellationToken cancellationToken){
 		// TODO split into seperate functions!
 		//try{
@@ -256,39 +295,12 @@ public class Program{
 			context.Response.StatusCode = 403;
 			return;
 		}
+		context.Response.ContentEncoding = Encoding.UTF8;
+		context.Response.ContentType = "text/html";
 		MySqlCommand cmd;
 		// changing customer data
 		if(context.Request.HttpMethod == "POST"){
-			var hidParam = Servicer.GetHiddenParameters(context.Request);
-			bool retVal = service.TryLogin(hidParam);
-			if(!retVal){
-				document += "Not correct password!";
-				goto ACCOUNT_POST_END;
-			}
-			string fName = hidParam["fname"];
-			string lName = hidParam["lname"];
-			string eMail = hidParam["mail"];
-			string birth = hidParam["birth"];
-			string newpwd = Servicer.EncodePassword(hidParam["npwd"]);
-			string n2pwd = Servicer.EncodePassword(hidParam["n2pwd"]);
-			if(newpwd != n2pwd){
-				document += "Password don't match!";
-				goto ACCOUNT_POST_END;
-			}
-			if(hidParam["npwd"] == ""){
-				newpwd = Servicer.EncodePassword(hidParam["pwd"]);
-			}
-			cmd = new MySqlCommand($"UPDATE Kunden SET VorName=\"{fName}\",NachName=\"{lName}\",eMail=\"{eMail}\",GeborenAm=\"{birth}\",password=\"{newpwd}\" WHERE Kunden_ID = {accId}",service.con);
-			cmd.ExecuteNonQuery();
-
-			// don't get locked out!
-			context.Response.RedirectLocation = $"/account/{service.GetTokenFor(accId)}";
-			// indicate it worked
-			document += "Changed stuff!";
-			cmd.Dispose();
-// you need to put something behind an label - why?
-ACCOUNT_POST_END:
-			hidParam.Clear();
+			HandelPostAccount(ref document,context,accId);
 		}
 		//Console.WriteLine(context.Request.RawUrl);
 		cmd = new MySqlCommand($"SELECT Kunden_ID, VorName, NachName, eMail, GeborenAm, ErstellungsDatum From Kunden Where Kunden_ID = {accId}",service.con);
@@ -305,11 +317,12 @@ ACCOUNT_POST_END:
 		"<script src=\"/scripts/account-edit.js\"></script></div>";
 		pref.Close();
 		pref.Dispose();
-		cmd.CommandText = "SELECT * FROM Buchungen";
-		pref = cmd.ExecuteReader();
-		List<BookingInfo> bkInfos = new List<BookingInfo>();
+		//cmd.CommandText = $"SELECT * FROM Buchungen WHERE Kunden_ID = {accId}";
+		//pref = cmd.ExecuteReader();
+		//List<BookingInfo> bkInfos = new List<BookingInfo>();
+		List<BookingInfo> bkInfos = service.GetBookingFromKundenID(accId);
 		// you can't have 2 SQL Querys running at the same time!
-		while(pref.Read()){
+		/*while(pref.Read()){
 			bkInfos.Add(new BookingInfo(
 				pref.GetInt32(0),
 				pref.GetInt32(1),
@@ -319,7 +332,7 @@ ACCOUNT_POST_END:
 						));
 		}
 		pref.Close();
-		pref.Dispose();
+		pref.Dispose();*/
 		document += "<div style=\"width:fit-content\">";
 		decimal kosten;
 		string addLaterData;
@@ -422,10 +435,10 @@ DISPOSE_CMD_BOOK:
 			document += "wrong login!";
 			goto END_TRY_BOOK;
 		}
-		// date stuff
+		// date checking
 		DateTime starting = DateTime.Parse(hidParam["from"],CultureInfo.InvariantCulture);
 		DateTime ending = DateTime.Parse(hidParam["till"],CultureInfo.InvariantCulture);
-		Console.WriteLine($"{starting} - {ending}");
+		//Console.WriteLine($"{starting} - {ending}");
 		if(starting > ending){
 			document += "\nout of order!";
 			goto END_TRY_BOOK;
@@ -434,8 +447,10 @@ DISPOSE_CMD_BOOK:
 			document += "\ncannot book in the past!";
 			goto END_TRY_BOOK;
 		}
+		//
 		HandelPostBookQuerying(ref document,hidParam,starting,ending);
 END_TRY_BOOK:
+		// finishing touches
 		document += Program.docEnd;
 		var bytes = Encoding.UTF8.GetBytes(document);
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
@@ -481,6 +496,8 @@ END_TRY_BOOK:
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 	}
 	private static async void HandelHttpBook(HttpListenerContext context,CancellationToken cancellationToken){
+		context.Response.ContentEncoding = Encoding.UTF8;
+		context.Response.ContentType = "text/html";
 		if(context.Request.HttpMethod == "POST"){
 			HandelPostBook(context,cancellationToken);
 			return;

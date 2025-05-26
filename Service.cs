@@ -50,7 +50,7 @@ public class Servicer{
 			}
 			sql = $"CREATE TABLE {tableName}({String.Join(',',param)});";
 			*/
-			sql = $"CREATE TABLE {tableName}({formatStr});";
+			sql = $"{formatStr}";
 			Console.WriteLine(sql);
 			cmd = new MySqlCommand(sql,con);
 			cmd.ExecuteNonQuery();
@@ -408,5 +408,25 @@ public class Servicer{
 			return false;
 		// success!
 		return true;
+	}
+	public List<BookingInfo> GetBookingFromKundenID(int accId){
+		MySqlCommand cmd = new MySqlCommand($"SELECT * FROM Buchungen WHERE Kunden_ID = {accId}",con);
+		MySqlDataReader pref = cmd.ExecuteReader();
+		List<BookingInfo> bkInfos = new List<BookingInfo>();
+		// you can't have 2 SQL Querys running at the same time!
+		while(pref.Read()){
+			bkInfos.Add(new BookingInfo(
+				pref.GetInt32(0),
+				pref.GetInt32(1),
+				pref.GetDateTime(2),
+				pref.GetDateTime(3),
+				pref.GetDateTime(4)
+						));
+		}
+
+		pref.Dispose();
+		pref.Close();
+		cmd.Dispose();
+		return bkInfos;
 	}
 }
