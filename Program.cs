@@ -131,7 +131,7 @@ public class Program{
 		service.server.HandlesStaticFile("/contact", "web-files/contact.html");
 		service.server.HandlesStaticFile("/login", "web-files/login.html"); // move to handler!
 		service.server.HandlesStaticFile("/register", "web-files/register.html"); // move to handler!
-		service.server.HandlesStaticFile("/favicon.ico", "web-files/favicondot-icon-192x192.png");
+		service.server.HandlesStaticFile("/favicon.ico", "web-files/favicon-icon-192x192.png");
 
         //
         service.Start();
