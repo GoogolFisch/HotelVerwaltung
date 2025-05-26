@@ -104,7 +104,9 @@ public class Program{
 		});
 		service.server.HandlesPath("/status", async (context, cancellationToken) => {HandelHttpStatus(context,cancellationToken);});
 		service.server.HandlesPath("/try-register", async (context, cancellationToken) => { HandelHttpRegister(context,cancellationToken); });
+		service.server.HandlesPath("/register", async (context, cancellationToken) => { HandelHttpRegister(context,cancellationToken); });
 		service.server.HandlesPath("/try-login", async (context, cancellationToken) => { HandelHttpLogin(context,cancellationToken); });
+		service.server.HandlesPath("/login", async (context, cancellationToken) => { HandelHttpLogin(context,cancellationToken); });
 		service.server.Handles( path => path.StartsWith("/account/"), async (context, cancellationToken) => { HandelHttpAccount(context, cancellationToken); });
 		service.server.HandlesPath("/try-book", async (context, cancellationToken) => { HandelHttpBook(context,cancellationToken); });
 		// from service.server.HandlesStaticFile("/book", "web-files/book.html");
@@ -129,12 +131,12 @@ public class Program{
 		service.server.HandlesStaticFile("/food", "web-files/food.html");
 		service.server.HandlesStaticFile("/location", "web-files/location.html");
 		service.server.HandlesStaticFile("/contact", "web-files/contact.html");
-		service.server.HandlesStaticFile("/login", "web-files/login.html"); // move to handler!
-		service.server.HandlesStaticFile("/register", "web-files/register.html"); // move to handler!
+		//service.server.HandlesStaticFile("/login", "web-files/login.html"); // move to handler!
+		//service.server.HandlesStaticFile("/register", "web-files/register.html"); // move to handler!
 		service.server.HandlesStaticFile("/favicon.ico", "web-files/favicon-icon-192x192.png");
 
-        //
-        service.Start();
+		//
+		service.Start();
 		// https://medium.com/@rainer_8955/gracefully-shutdown-c-apps-2e9711215f6d
 		Console.CancelKeyPress += (_, ea) =>
 		{
@@ -150,7 +152,7 @@ public class Program{
 		}
 		// stopping
 		service.Stop();
-	} // ""
+	}
 	private static async void HandelHttpPrint(HttpListenerContext context,CancellationToken cancellationToken){
 		// setup stuff
 		context.Response.ContentEncoding = Encoding.UTF8;
@@ -195,9 +197,9 @@ public class Program{
 	private static async void HandelHttpRegister(HttpListenerContext context,CancellationToken cancellationToken){
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
+		string document = Program.docStart;
 		if(context.Request.HttpMethod == "POST"){
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
-			string document = Program.docStart;
 			int retVal = service.TryRegisterUser(hidParam);
 			if(retVal == 0){
 				document += "registering successfull for:<br>";
@@ -216,26 +218,39 @@ public class Program{
 				        "\"window.location.href='/register'\",2500"+
 					");</script>";
 			}
-			document += Program.docEnd;
-			context.Response.ContentType = "text/html";
-			byte[] bytes = Encoding.UTF8.GetBytes(document);
-			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-			return;
+		}else{
+			document += 
+"<form action=\"/register\" method=\"post\" role=\"form\">" +
+"	<label for=\"fname\">Erstname:</label>" +
+"	<input type=\"text\" id=\"fname\" name=\"fname\"></input><br>" +
+"	<label for=\"lname\">Nachname:</label>" +
+"	<input type=\"text\" id=\"lname\" name=\"lname\"></input><br>" +
+"	<label for=\"e-mail\">E-Mail:</label>" +
+"	<input type=\"email\" id=\"e-mail\" name=\"mail\"></input><br>" +
+"	<label for=\"birth\">Geburtstag:</label>" +
+"	<input type=\"date\" id=\"birth\" name=\"birth\"></input><br>" +
+"	<label for=\"pwd\">Passwort:</label>" +
+"	<input type=\"password\" id=\"pwd\" name=\"pwd\"></input><br>" +
+"	<input type=\"submit\" value=\"submit\">" +
+"</form>" +
+"<a href=\"login\">Login</a>";
 		}
+		document += Program.docEnd;
+		context.Response.ContentType = "text/html";
+		byte[] bytes = Encoding.UTF8.GetBytes(document);
+		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 	}
 	private static async void HandelHttpLogin(HttpListenerContext context,CancellationToken cancellationToken){
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
+		string document = Program.docStart;
 		//try{
 		if(context.Request.HttpMethod == "POST"){
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
-			string document = Program.docStart;
 			bool retVal = service.TryLogin(hidParam);
 			if(retVal){
 				document += "success!";
-				document +=	"<script>setTimeout("+
-				        $"\"window.location.href='/account/{service.GetTokenFor(hidParam["mail"])}'\",500"+
-					");</script>";
+				context.Response.RedirectLocation = $"/account/{service.GetTokenFor(hidParam["mail"])}";
 			}
 			else{
 				document += "incorrect information!";
@@ -243,11 +258,22 @@ public class Program{
 				        "\"window.location.href='/login'\",2500"+
 					");</script>";
 			}
+		}else{
+			document += 
+"<form action=\"/login\" method=\"post\" role=\"form\">" +
+"	<label for=\"e-mail\">E-Mail:</label>" +
+"	<input type=\"email\" id=\"e-mail\" name=\"mail\"></input><br>" +
+"	<label for=\"pwd\">Passwort:</label>" +
+"	<input type=\"password\" id=\"pwd\" name=\"pwd\"></input><br>" +
+"	<input type=\"submit\" value=\"submit\">" +
+"</form>" +
+"<a href=\"register\">registreire ein Account</a>";
 
-			var bytes = Encoding.UTF8.GetBytes(document);
-			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-			return;
 		}
+		document += docEnd;
+		var bytes = Encoding.UTF8.GetBytes(document);
+		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+
 		//}catch(Exception e){Console.WriteLine(e.ToString());}
 	}
 	private static void HandelPostAccount(ref string document,HttpListenerContext context,int accId){
