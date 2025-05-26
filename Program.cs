@@ -131,9 +131,10 @@ public class Program{
 		service.server.HandlesStaticFile("/contact", "web-files/contact.html");
 		service.server.HandlesStaticFile("/login", "web-files/login.html"); // move to handler!
 		service.server.HandlesStaticFile("/register", "web-files/register.html"); // move to handler!
+		service.server.HandlesStaticFile("/favicon.ico", "web-files/favicondot-icon-192x192.png");
 
-		//
-		service.Start();
+        //
+        service.Start();
 		// https://medium.com/@rainer_8955/gracefully-shutdown-c-apps-2e9711215f6d
 		Console.CancelKeyPress += (_, ea) =>
 		{
