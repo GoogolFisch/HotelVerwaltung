@@ -107,8 +107,9 @@ public class Program{
 		service.server.HandlesPath("/try-login", async (context, cancellationToken) => { HandelHttpLogin(context,cancellationToken); });
 		service.server.Handles( path => path.StartsWith("/account/"), async (context, cancellationToken) => { HandelHttpAccount(context, cancellationToken); });
 		service.server.HandlesPath("/try-book", async (context, cancellationToken) => { HandelHttpBook(context,cancellationToken); });
-		// from service.server.HandlesStaticFile("/book", "web-files/book.html");
-		service.server.HandlesPath("/book", async (context, cancellationToken) => { HandelHttpBook(context,cancellationToken); });
+		service.server.HandlesPath("/try-food", async (context, cancellationToken) => { HandelHttpStatus(context, cancellationToken); });
+        // from service.server.HandlesStaticFile("/book", "web-files/book.html");
+        service.server.HandlesPath("/book", async (context, cancellationToken) => { HandelHttpBook(context,cancellationToken); });
 		service.server.Handles(
 				path => (path.StartsWith("/images/") ||
 					 path.StartsWith("/scripts/")) &&
