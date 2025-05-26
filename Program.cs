@@ -69,8 +69,8 @@ public class Program{
 		Console.WriteLine(service.webServerUrl);
 
 		service.EnsureTableFormat("Kunden","CREATE TABLE `Kunden` ( `Kunden_ID` int(11) NOT NULL AUTO_INCREMENT, `VorName` varchar(20) NOT NULL, `NachName` varchar(20) NOT NULL, `eMail` varchar(40) NOT NULL, `ErstellungsDatum` datetime NOT NULL, `GeborenAm` date NOT NULL, `password` char(64) NOT NULL, PRIMARY KEY (`Kunden_ID`))");
-		service.EnsureTableFormat("Raum","CREATE TABLE `Raum` ( `Raum_ID` int(11) NOT NULL AUTO_INCREMENT, `Kosten` decimal(5,2) NOT NULL, `anzBetten` int(2) NOT NULL, `RaumTyp` varchar(2) NOT NULL, `ZimmerNum` int(11) NOT NULL, PRIMARY KEY (`Raum_ID`))");
-		service.EnsureTableFormat("Buchungen","CREATE TABLE `Buchungen` ( `BuchungsID` int(11) NOT NULL AUTO_INCREMENT, `Kunden_ID` int(11) NOT NULL, `BuchungsDatum` datetime NOT NULL, `BuchungStart` date NOT NULL, `BuchungEnde` date NOT NULL, PRIMARY KEY (`BuchungsID`))");
+		service.EnsureTableFormat("Raum","CREATE TABLE `Raum` ( `Raum_ID` int(11) NOT NULL AUTO_INCREMENT, `Kosten` decimal(6,2) NOT NULL, `anzBetten` int(2) NOT NULL, `RaumTyp` varchar(2) NOT NULL, `ZimmerNum` int(11) NOT NULL, PRIMARY KEY (`Raum_ID`))");
+		service.EnsureTableFormat("Buchungen","CREATE TABLE `Buchungen` ( `Buchungs_ID` int(11) NOT NULL AUTO_INCREMENT, `Kunden_ID` int(11) NOT NULL, `BuchungsDatum` datetime NOT NULL, `BuchungStart` date NOT NULL, `BuchungEnde` date NOT NULL, PRIMARY KEY (`Buchungs_ID`))");
 		service.EnsureTableFormat("ZimmerBuchung","CREATE TABLE `ZimmerBuchung` ( `Buchungs_ID` int(11) NOT NULL, `Raum_ID` int(11) NOT NULL, PRIMARY KEY (`Buchungs_ID`,`Raum_ID`))");
 		// register everything!
 		// register funny logical stuff
@@ -284,20 +284,46 @@ public class Program{
 		document += "Changed stuff!";
 		cmd.Dispose();
 	}
+	private static void HandelAccountCancelBooking(HttpListenerContext context,int accId,ref string document,int bookingId){
+		//Console.WriteLine($"Removing: booking={bookingId} and account={accId}");
+		MySqlCommand cmd = new MySqlCommand($"SELECT * FROM Buchungen WHERE Kunden_ID = {accId} AND Buchungs_ID = {bookingId}",service.con);
+		MySqlDataReader pref = cmd.ExecuteReader();
+		// can delete
+		bool shouldDelete = pref.HasRows;
+		pref.Dispose();
+		pref.Close();
+		if(shouldDelete){
+			cmd.CommandText = $"DELETE FROM Buchungen WHERE Kunden_ID = {accId} AND Buchungs_ID = {bookingId};";
+			cmd.ExecuteNonQuery();
+			cmd.CommandText = $"DELETE FROM ZimmerBuchung WHERE Buchungs_ID = {bookingId};";
+			cmd.ExecuteNonQuery();
+		}
+		cmd.Dispose();
+	}
 	private static async void HandelHttpAccount(HttpListenerContext context,CancellationToken cancellationToken){
 		// TODO split into seperate functions!
 		//try{
 		// check if is allowed
-		string tok = context.Request.RawUrl.Substring(9);
+		string[] splittings = context.Request.RawUrl.Split('/');
+		if(splittings.Length < 2){
+			context.Response.StatusCode = 403;
+			return;
+		}
+		string tok = splittings[2];
 		string document = Program.docStart;
 		int accId;
 		bool correctToken = service.CheckToken(tok,out accId);
+		context.Response.ContentEncoding = Encoding.UTF8;
+		context.Response.ContentType = "text/html";
 		if(!correctToken){
 			context.Response.StatusCode = 403;
 			return;
 		}
-		context.Response.ContentEncoding = Encoding.UTF8;
-		context.Response.ContentType = "text/html";
+		// cancel
+		if(splittings.Length > 3){
+			int.TryParse(splittings[3].Substring(7),out int bookingNum);
+			HandelAccountCancelBooking(context,accId,ref document,bookingNum);
+		}
 		MySqlCommand cmd;
 		// changing customer data
 		if(context.Request.HttpMethod == "POST"){
@@ -318,22 +344,8 @@ public class Program{
 		"<script src=\"/scripts/account-edit.js\"></script></div>";
 		pref.Close();
 		pref.Dispose();
-		//cmd.CommandText = $"SELECT * FROM Buchungen WHERE Kunden_ID = {accId}";
-		//pref = cmd.ExecuteReader();
-		//List<BookingInfo> bkInfos = new List<BookingInfo>();
 		List<BookingInfo> bkInfos = service.GetBookingFromKundenID(accId);
-		// you can't have 2 SQL Querys running at the same time!
-		/*while(pref.Read()){
-			bkInfos.Add(new BookingInfo(
-				pref.GetInt32(0),
-				pref.GetInt32(1),
-				pref.GetDateTime(2),
-				pref.GetDateTime(3),
-				pref.GetDateTime(4)
-						));
-		}
-		pref.Close();
-		pref.Dispose();*/
+
 		document += "<div style=\"width:fit-content\">";
 		decimal kosten;
 		string addLaterData;
@@ -342,10 +354,11 @@ public class Program{
 			kosten = 0m;
 			cmd.CommandText = $"SELECT r.Kosten,r.anzBetten,r.RaumTyp,r.ZimmerNum FROM Raum r JOIN ZimmerBuchung zb ON r.Raum_ID = zb.Raum_ID WHERE zb.Buchungs_ID = {bkinf.bookingId}";
 			pref = cmd.ExecuteReader();
+			int daySpan = (bkinf.bookingEnd - bkinf.bookingStart).Days + 1;
 			addLaterData = "<ul>";
 			// insert the rooms
 			while(pref.Read()){
-				kosten += (decimal)pref.GetFloat(0);
+				kosten += (decimal)pref.GetFloat(0) * daySpan;
 				addLaterData += $"<li>Raum-{pref.GetString(2)}: " +
 					$"{pref.GetInt32(3)} " +
 					$"mit {pref.GetInt32(1)} Betten -> " +
@@ -357,12 +370,17 @@ public class Program{
 			$"Gebucht am: {bkinf.bookingDate.ToString($"{Servicer.ddmmyyyy} {Servicer.hhmmss}")}<br>" +
 			$"{bkinf.bookingStart.ToString(Servicer.ddmmyyyy)} - {bkinf.bookingEnd.ToString(Servicer.ddmmyyyy)}" +
 			$" | ${kosten}" +
-			$"{addLaterData}" +
-			"</div>";
+			$"{addLaterData}";
+			// test stuff
+			if(bkinf.bookingStart > DateTime.Now)
+				document += $"<button onclick=\"cancelBooking({bkinf.bookingId});\">Stornieren</button>";
+			else
+				document += $"Stornieren nicht moeglich.";
+			document += "</div>";
 
 			pref.Close();
 			pref.Dispose();
-			document += $"";
+			//document += $"";
 		}
 		cmd.Dispose();
 		document += Program.docEnd;
@@ -372,7 +390,7 @@ public class Program{
 	}
 
 	private static void HandelPostBookQuerying(ref string document,Dictionary<string,string> hidParam,DateTime starting,DateTime ending){
-		// SELECT * FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.BuchungsID WHERE b.BuchungStart > "2025-02-02" AND b.BuchungEnde < "2025-03-03")
+		// SELECT * FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.Buchungs_ID WHERE b.BuchungStart > "2025-02-02" AND b.BuchungEnde < "2025-03-03")
 		bool canDoIt = true;
 		MySqlCommand cmd = new MySqlCommand("",service.con);
 		MySqlDataReader pref;
@@ -382,7 +400,7 @@ public class Program{
 			int wantingCnt = Convert.ToInt32(
 					hidParam[$"snd-{rmInf.typeName}"]
 					);
-			cmd.CommandText = $"SELECT COUNT(*) FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.BuchungsID WHERE b.BuchungStart > \"{starting.ToString(Servicer.yyyymmdd)}\" AND b.BuchungEnde < \"{ending.ToString(Servicer.yyyymmdd)}\") AND RaumTyp =\"{rmInf.typeName}\" ";
+			cmd.CommandText = $"SELECT COUNT(*) FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.Buchungs_ID WHERE b.BuchungStart > \"{starting.ToString(Servicer.yyyymmdd)}\" AND b.BuchungEnde < \"{ending.ToString(Servicer.yyyymmdd)}\") AND RaumTyp =\"{rmInf.typeName}\" ";
 			pref = cmd.ExecuteReader();
 			pref.Read();
 			int count = pref.GetInt32(0);
@@ -399,14 +417,14 @@ public class Program{
 		cmd.CommandText = $"INSERT INTO Buchungen(Kunden_ID,BuchungsDatum,BuchungStart,BuchungEnde) VALUES((SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{sanMail}\"),\"{DateTime.Now.ToString($"{Servicer.yyyymmdd} {Servicer.hhmmss}")}\"," + 
 		$"\"{starting.ToString(Servicer.yyyymmdd)}\",\"{ending.ToString(Servicer.yyyymmdd)}\")";
 		cmd.ExecuteNonQuery();
-		cmd.CommandText = $"SELECT MAX(BuchungsID) FROM Buchungen WHERE Kunden_ID = (SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{sanMail}\")";
+		cmd.CommandText = $"SELECT MAX(Buchungs_ID) FROM Buchungen WHERE Kunden_ID = (SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{sanMail}\")";
 		pref = cmd.ExecuteReader();
 		pref.Read();
 		int buchungsId = pref.GetInt32(0);
 		pref.Dispose();
 		pref.Close();
 		foreach(RoomInfos rmInf in service.roomTypes){
-			cmd.CommandText = $"SELECT Raum_ID FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.BuchungsID WHERE b.BuchungStart > \"{starting.ToString(Servicer.yyyymmdd)}\" AND b.BuchungEnde < \"{ending.ToString(Servicer.yyyymmdd)}\") AND RaumTyp =\"{rmInf.typeName}\" ";
+			cmd.CommandText = $"SELECT Raum_ID FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.Buchungs_ID WHERE b.BuchungStart > \"{starting.ToString(Servicer.yyyymmdd)}\" AND b.BuchungEnde < \"{ending.ToString(Servicer.yyyymmdd)}\") AND RaumTyp =\"{rmInf.typeName}\" ";
 			pref = cmd.ExecuteReader();
 			List<int> roomIds = new List<int>();
 			while(pref.Read())

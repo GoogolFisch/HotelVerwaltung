@@ -313,7 +313,9 @@ public class Servicer{
 		SHA256 sha256 = SHA256.Create();
 		byte[] data = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
 		sha256.Dispose();
-		return Convert.ToBase64String(data,0,32);
+		string coded = Convert.ToBase64String(data,0,data.Length);
+		coded = coded.Replace('/','-');
+		return coded;
 	}
 	public int TryRegisterUser(Dictionary<string,string> lookup){
 		string fName = lookup["fname"];
