@@ -37,3 +37,11 @@ function accountCancelEdit(){
 
 	//window.location.reload();
 }
+
+
+function cancelBooking(booking){
+	if(!window.confirm("Buchung stornieren?"))
+		return;
+	window.location.href += "/storno-" + booking;
+	console.log("Hello " + booking);
+}
