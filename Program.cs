@@ -72,6 +72,7 @@ public class Program{
 		service.EnsureTableFormat("Raum","CREATE TABLE `Raum` ( `Raum_ID` int(11) NOT NULL AUTO_INCREMENT, `Kosten` decimal(6,2) NOT NULL, `anzBetten` int(2) NOT NULL, `RaumTyp` varchar(2) NOT NULL, `ZimmerNum` int(11) NOT NULL, PRIMARY KEY (`Raum_ID`))");
 		service.EnsureTableFormat("Buchungen","CREATE TABLE `Buchungen` ( `Buchungs_ID` int(11) NOT NULL AUTO_INCREMENT, `Kunden_ID` int(11) NOT NULL, `BuchungsDatum` datetime NOT NULL, `BuchungStart` date NOT NULL, `BuchungEnde` date NOT NULL, PRIMARY KEY (`Buchungs_ID`))");
 		service.EnsureTableFormat("ZimmerBuchung","CREATE TABLE `ZimmerBuchung` ( `Buchungs_ID` int(11) NOT NULL, `Raum_ID` int(11) NOT NULL, PRIMARY KEY (`Buchungs_ID`,`Raum_ID`))");
+		service.EnsureTableFormat("Bewertung","");
 		// register everything!
 		// register funny logical stuff
 		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),async (context,cancellationToken) => HandelHttpPrint(context,cancellationToken));
@@ -244,16 +245,18 @@ public class Program{
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
 		string document = Program.docStart;
-		//try{
+		try{
 		if(context.Request.HttpMethod == "POST"){
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
 			bool retVal = service.TryLogin(hidParam);
 			if(retVal){
-				document += "success!";
-				context.Response.RedirectLocation = $"/account/{service.GetTokenFor(hidParam["mail"])}";
+				document += "Erfolgreich!";
+				string tokString = service.GetTokenFor(hidParam["mail"]);
+				context.Response.RedirectLocation = $"/account/{tokString}";
+				document += $"<script>setTimeout(\"window.location.href='/account/{tokString}'\",500);</script>";
 			}
 			else{
-				document += "incorrect information!";
+				document += "Falsche Login details.";
 				document +=	"<script>setTimeout("+
 				        "\"window.location.href='/login'\",2500"+
 					");</script>";
@@ -274,7 +277,7 @@ public class Program{
 		var bytes = Encoding.UTF8.GetBytes(document);
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 
-		//}catch(Exception e){Console.WriteLine(e.ToString());}
+		}catch(Exception e){Console.WriteLine(e.ToString());}
 	}
 	private static void HandelPostAccount(ref string document,HttpListenerContext context,int accId){
 		var hidParam = Servicer.GetHiddenParameters(context.Request);
@@ -475,9 +478,9 @@ DISPOSE_CMD_BOOK:
 		string document = Program.docStart;
 		bool retVal = service.TryLogin(hidParam);
 		if(retVal){
-			document += "login successful!";
+			document += "Ihre Buchung war erfolgreich!";
 		}else{
-			document += "wrong login!";
+			document += "Falsches EMail oder Passwort!";
 			goto END_TRY_BOOK;
 		}
 		// date checking
@@ -485,11 +488,11 @@ DISPOSE_CMD_BOOK:
 		DateTime ending = DateTime.Parse(hidParam["till"],CultureInfo.InvariantCulture);
 		//Console.WriteLine($"{starting} - {ending}");
 		if(starting > ending){
-			document += "\nout of order!";
+			document += "\nNegativer Buchungszeitraum";
 			goto END_TRY_BOOK;
 		}
 		if(ending < DateTime.Now){ // add a min time!
-			document += "\ncannot book in the past!";
+			document += "\nIn vergangenen Tagen kann man nicht buchen";
 			goto END_TRY_BOOK;
 		}
 		//
@@ -509,10 +512,7 @@ END_TRY_BOOK:
 		// insert auto creation of stuff here!
 		document += "<ul>";
 		foreach(RoomInfos roomTyp in service.roomTypes){
-			document += "<li class=\"rooms\">" +
-				$"{roomTyp.ToHtml()}" +
-				$"<script>roomTypes.set(\"{roomTyp.typeName}\",{roomTyp.cost});</script>" +
-				"</li>\n";
+			document += roomTyp.ToHtml();
 		}
 		document += "</ul>";
 		// adding booking stuff
