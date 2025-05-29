@@ -6,7 +6,7 @@ public struct RoomInfos{
 	public RoomInfos(string typ,decimal cost){
 		this.typeName = typ;
 		this.cost = cost;
-		this.picturePath = $"./images/{typ}.jpg";
+		this.picturePath = $"./images/{typ}.jpeg";
 	}
 	public string ToHtml(){
 		return $"<li class=\"rooms rooms-{typeName}\" onclick=\"room_focus('{typeName}')\">" + 

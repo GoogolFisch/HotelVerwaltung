@@ -82,12 +82,12 @@ a.right {
 	flex-direction: row;
 }
 .rooms img {
-	width: 50px;
-	height: 50px;
-}
-.rooms-select img {
 	width: 100px;
 	height: 100px;
+}
+.rooms-select img {
+	width: 300px;
+	height: 300px;
 }
 .rooms div {
 	margin-left: 15px;

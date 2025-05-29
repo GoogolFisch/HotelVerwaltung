@@ -207,16 +207,16 @@ public class Program{
 				document += $"{hidParam["fname"]} ";
 				document += $"{hidParam["lname"]}";
 				document +=	"<script>setTimeout("+
-				        "\"window.location.href='/'\",2500);</script>";
+				        "\"window.location.href='/'\",1000);</script>";
 			} else if(retVal == 1){
 				document += "some one already hash such an account";
 				document +=	"<script>setTimeout("+
-				        "\"window.location.href='/register'\",2500"+
+				        "\"window.location.href='/register'\",1000"+
 					");</script>";
 			}else if(retVal == 2){
 				document += "Not correct format!";
 				document +=	"<script>setTimeout("+
-				        "\"window.location.href='/register'\",2500"+
+				        "\"window.location.href='/register'\",1000"+
 					");</script>";
 			}
 		}else{
@@ -253,12 +253,12 @@ public class Program{
 				document += "Erfolgreich!";
 				string tokString = service.GetTokenFor(hidParam["mail"]);
 				context.Response.RedirectLocation = $"/account/{tokString}";
-				document += $"<script>setTimeout(\"window.location.href='/account/{tokString}'\",500);</script>";
+				document += $"<script>setTimeout(\"window.location.href='/account/{tokString}'\",100);</script>";
 			}
 			else{
 				document += "Falsche Login details.";
 				document +=	"<script>setTimeout("+
-				        "\"window.location.href='/login'\",2500"+
+				        "\"window.location.href='/login'\",1000"+
 					");</script>";
 			}
 		}else{
@@ -516,12 +516,17 @@ END_TRY_BOOK:
 		}
 		document += "</ul>";
 		// adding booking stuff
+		DateTime tomorrow = DateTime.Now; // auto limit the input
+		tomorrow.AddDays(1d);
 		document +=
 		"<form method=\"post\" role=\"form\" action=\"/book\">" +
 			"<label for=\"from\">Datum von:</label>" +
-			"<input type=\"date\" id=\"from\" name=\"from\"></input><br>" +
+			$"<input type=\"date\" id=\"from\" name=\"from\" onchange=\"total_update()\" min=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" value=\"{tomorrow.ToString(Servicer.yyyymmdd)}\"></input><br>";
+		// limit the till part
+		tomorrow.AddDays(1d);
+		document +=
 			"<label for=\"till\">Datum bis:</label>" +
-			"<input type=\"date\" id=\"till\" name=\"till\"></input><br>" +
+			$"<input type=\"date\" id=\"till\" name=\"till\" onchange=\"total_update()\" min=\"{tomorrow.ToString(Servicer.yyyymmdd)}\"></input><br>" +
 			"<label for=\"mail\">E-Mail:</label>" +
 			"<input type=\"email\" id=\"mail\" name=\"mail\"></input><br>" +
 			"<label for=\"pwd\">Passwort:</label>" +

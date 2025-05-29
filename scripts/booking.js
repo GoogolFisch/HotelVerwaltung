@@ -1,4 +1,5 @@
 var roomTypes = new Map();
+const ONE_DAY = 1000 * 60 * 60 * 24;
 
 function room_update(roomTyp,val){
 	let shwCnt = document.getElementById("shw-"+roomTyp);
@@ -14,18 +15,25 @@ function room_update(roomTyp,val){
 }
 
 function days_between(date1, date2) {
+	date1 = Date.parse(date1);
+	date2 = Date.parse(date2);
 	// The number of milliseconds in one day
-	const ONE_DAY = 1000 * 60 * 60 * 24;
 	// Calculate the difference in milliseconds
 	const differenceMs = Math.abs(date1 - date2);
 	// Convert back to days and return
 	return Math.round(differenceMs / ONE_DAY);
 }
+function getISODate(time){
+	let tt = new Date(time);
+	return tt.toISOString().slice(0,10);
+}
 
 function total_update(){
-	let timeStart = Date.parse(document.getElementById("from").value);
-	let timeEnd = Date.parse(document.getElementById("till").value);
-	let dayCount = days_between(timeStart,timeEnd);
+	let timeStart = document.getElementById("from");
+	let timeEnd = document.getElementById("till");
+	timeStart.min = getISODate(Date.now() + ONE_DAY);
+	timeEnd.min = getISODate(Date.parse(timeStart.value) + ONE_DAY);
+	let dayCount = days_between(timeStart.value,timeEnd.value);
 	if(dayCount === undefined)
 		dayCount = 1;
 	if(isNaN(dayCount))
