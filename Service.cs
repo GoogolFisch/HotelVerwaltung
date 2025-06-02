@@ -377,7 +377,6 @@ public class Servicer{
 		return correct;
 	}
 	public string GetTokenFor(string accountEMail){
-		accountEMail = accountEMail;
 		MySqlCommand cmd = new MySqlCommand($"SELECT password,Kunden_ID FROM Kunden WHERE eMail = \"{accountEMail}\"",con);
 		MySqlDataReader pref = cmd.ExecuteReader();
 		pref.Read();

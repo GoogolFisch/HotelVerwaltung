@@ -75,7 +75,7 @@ public class Program{
 		service.EnsureTableFormat("Bewertung","");
 		// register everything!
 		// register funny logical stuff
-		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),async (context,cancellationToken) => HandelHttpPrint(context,cancellationToken));
+		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),HandelHttpPrint);
 		service.server.Handles(str => (str == "/tables" || str.StartsWith("/tables/")),async (context,cancellationToken) => {
 			context.Response.ContentEncoding = Encoding.UTF8;
 			context.Response.ContentType = "text/plain";
@@ -103,15 +103,15 @@ public class Program{
 			byte[] bytes = Encoding.UTF8.GetBytes(document);
 			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		});
-		service.server.HandlesPath("/status", async (context, cancellationToken) => {HandelHttpStatus(context,cancellationToken);});
-		service.server.HandlesPath("/try-register", async (context, cancellationToken) => { HandelHttpRegister(context,cancellationToken); });
-		service.server.HandlesPath("/register", async (context, cancellationToken) => { HandelHttpRegister(context,cancellationToken); });
-		service.server.HandlesPath("/try-login", async (context, cancellationToken) => { HandelHttpLogin(context,cancellationToken); });
-		service.server.HandlesPath("/login", async (context, cancellationToken) => { HandelHttpLogin(context,cancellationToken); });
-		service.server.Handles( path => path.StartsWith("/account/"), async (context, cancellationToken) => { HandelHttpAccount(context, cancellationToken); });
-		service.server.HandlesPath("/try-book", async (context, cancellationToken) => { HandelHttpBook(context,cancellationToken); });
+		service.server.HandlesPath("/status", HandelHttpStatus);
+		service.server.HandlesPath("/try-register", HandelHttpRegister);
+		service.server.HandlesPath("/register", HandelHttpRegister);
+		service.server.HandlesPath("/try-login", HandelHttpLogin);
+		service.server.HandlesPath("/login", HandelHttpLogin);
+		service.server.Handles( path => path.StartsWith("/account/"), HandelHttpAccount);
+		service.server.HandlesPath("/try-book", HandelHttpBook);
 		// from service.server.HandlesStaticFile("/book", "web-files/book.html");
-		service.server.HandlesPath("/book", async (context, cancellationToken) => { HandelHttpBook(context,cancellationToken); });
+		service.server.HandlesPath("/book", HandelHttpBook);
 		service.server.Handles(
 				path => (path.StartsWith("/images/") ||
 					 path.StartsWith("/scripts/")) &&
@@ -154,7 +154,7 @@ public class Program{
 		// stopping
 		service.Stop();
 	}
-	private static async void HandelHttpPrint(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelHttpPrint(HttpListenerContext context,CancellationToken cancellationToken){
 		// setup stuff
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/plain";
@@ -178,7 +178,7 @@ public class Program{
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		return;
 	}
-	private static async void HandelHttpStatus(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelHttpStatus(HttpListenerContext context,CancellationToken cancellationToken){
 		// print current status
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
@@ -193,9 +193,9 @@ public class Program{
 				"<a href=\"/stop\">Stop Server</a><br>"+
 				"<a href=\"https://github.com/javidsho/LightHTTP\">LightHttp</a>" + Program.docEnd);
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-		return;
+		return ;
 	}
-	private static async void HandelHttpRegister(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelHttpRegister(HttpListenerContext context,CancellationToken cancellationToken){
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
 		string document = Program.docStart;
@@ -241,7 +241,7 @@ public class Program{
 		byte[] bytes = Encoding.UTF8.GetBytes(document);
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 	}
-	private static async void HandelHttpLogin(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelHttpLogin(HttpListenerContext context,CancellationToken cancellationToken){
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
 		string document = Program.docStart;
@@ -329,7 +329,7 @@ public class Program{
 		}
 		cmd.Dispose();
 	}
-	private static async void HandelHttpAccount(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelHttpAccount(HttpListenerContext context,CancellationToken cancellationToken){
 		// TODO split into seperate functions!
 		//try{
 		// check if is allowed
@@ -471,7 +471,7 @@ public class Program{
 DISPOSE_CMD_BOOK:
 		cmd.Dispose();
 	}
-	private static async void HandelPostBook(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelPostBook(HttpListenerContext context,CancellationToken cancellationToken){
 		try{
 		// test the account
 		Dictionary<string,string> hidParam = Servicer.GetHiddenParameters(context.Request);
@@ -504,7 +504,7 @@ END_TRY_BOOK:
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		}catch(Exception e){Console.WriteLine(e.ToString());}
 	}
-	private static async void HandelGetBook(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelGetBook(HttpListenerContext context,CancellationToken cancellationToken){
 		string document = Program.docStart +
 		"<script src=\"/scripts/booking.js\"></script>" +
 		"	<h1>Zimmer buchen</h1>";
@@ -545,13 +545,13 @@ END_TRY_BOOK:
 		var bytes = Encoding.UTF8.GetBytes(document);
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 	}
-	private static async void HandelHttpBook(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelHttpBook(HttpListenerContext context,CancellationToken cancellationToken){
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
 		if(context.Request.HttpMethod == "POST"){
-			HandelPostBook(context,cancellationToken);
+			await HandelPostBook(context,cancellationToken);
 			return;
 		}
-		HandelGetBook(context,cancellationToken);
+		await HandelGetBook(context,cancellationToken);
 	}
 }
