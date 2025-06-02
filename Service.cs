@@ -171,7 +171,7 @@ public class Servicer{
 				byte[] charCode = Encoding.UTF8.GetBytes(new char[]{inChar});
 				foreach(byte chh in charCode)
 					// each char in hex
-					outStr += $"%{chh:X}";
+					outStr += $"%{chh:X2}";
 			}
 		}
 		return outStr.Trim();

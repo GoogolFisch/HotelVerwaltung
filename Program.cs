@@ -126,9 +126,11 @@ public class Program{
 				cancellationToken
 			).ConfigureAwait(false);
 		});
+		//
+		service.server.HandlesPath("/", HandelHttpIndex);
 		// register local-files
 		service.server.HandlesStaticFile("/main.css", "web-files/main.css");
-		service.server.HandlesStaticFile("/", "web-files/index.html");
+		//service.server.HandlesStaticFile("/", "web-files/index.html");
 		service.server.HandlesStaticFile("/food", "web-files/food.html");
 		service.server.HandlesStaticFile("/location", "web-files/location.html");
 		service.server.HandlesStaticFile("/contact", "web-files/contact.html");
@@ -553,5 +555,84 @@ END_TRY_BOOK:
 			return;
 		}
 		await HandelGetBook(context,cancellationToken);
+	}
+	private static bool HandelPostIndex(HttpListenerContext context,ref string document){
+		// true -> show the menu agian
+		// false -> don't show it agian
+		var hidParam = Servicer.GetHiddenParameters(context.Request);
+		// try login to validate
+		bool retVal = service.TryLogin(hidParam);
+		if(!retVal){
+			document += "Falsches Passwort oder E-Mail addresse!";
+			//goto ACCOUNT_POST_END;
+			return true;
+		}
+		string comment = hidParam["com"];
+		string rateString = hidParam["rate"];
+		string eMail = hidParam["mail"];
+		int rateing;
+		if(!int.TryParse(rateString,out rateing)){
+			document += $"Leider ist {rateString} Keine Zahl...";
+			return true;
+		}
+		if(rateing < 0 || rateing > 5){
+			document += $"Eine Zahl zwischen 1 und 5 (inklusive) erwartet.";
+			return false;
+		}
+		MySqlCommand cmd = new MySqlCommand($"INSERT INTO Bewertung(Kunden_ID,Sterne,Nachricht) VALUES ((SELECT Kunden_ID FROM Kunden WHERE eMail = \"{eMail}\"),\"{rateing}\",\"{comment}\")",service.con);
+		try{
+			cmd.ExecuteNonQuery();
+		}catch{document += "<br>Sie haben schon hier bewertet. ";}
+		//}catch(Exception e){Console.WriteLine(e.ToString());}
+		cmd.Dispose();
+		return false;
+	}
+	private static async Task HandelHttpIndex(HttpListenerContext context,CancellationToken cancellationToken){
+		try{
+		string document = Program.docStart;
+		MySqlCommand cmd = new MySqlCommand("",service.con);
+		document += "<h1>Willkommen im Hotel Transelvanien</h1>";
+		// querying bewertungen
+		cmd.CommandText = "SELECT AVG(Sterne) FROM Bewertung";
+		MySqlDataReader rdr = cmd.ExecuteReader();
+		if(rdr.Read()){
+			if(!rdr.IsDBNull(0)){
+				//document += $"Noch niemand hat hier eine Bewertung abgegeben. ";
+				document += $"Unsere Kunden Zufiredenheit liegt bei {rdr.GetFloat(0):f1} Sternen. ";
+			}
+		}
+		rdr.Dispose();
+		rdr.Close();
+		//
+		document += "<h2>Hier finden Sie beste Zimmer</h2>" +
+			"<a href=\"/book\">Buchen</a> Sie jetzt bei uns, und finden Sie unsere schoensten Raeume.<br> Unsere Raeume sind riesig und preis wert.<br><a href=\"/book\">Buchen Sie bei uns!</a>";
+		document += "<h2>Hier finden Sie bestes Essen</h2>" +
+			"Unser <a href=\"/food\">Restaurante</a> hat fuer Sie zwischen 11:00 bis 18:00 offen!<br>Zu dem ist unser Essen super lecker und guenstig!<br><a href=\"/food\">Reservieren Sie sich einen Tisch Hier!</a>";
+		document += "<h2>Hier finden Sie bestes Service</h2>" +
+			"Unser Service ist das beste welches es gibt.<br>Wenn unser Service Ihnen nicht passt lassen Sie eine Bewertung dar.";
+		bool isPost = context.Request.HttpMethod == "POST";
+		bool handel = false;
+		if(isPost)handel = HandelPostIndex(context,ref document);
+		if(!isPost || handel)
+			document +=
+"Bewerten Sie auch!"+
+"<form method=\"post\" role=\"form\" action=\"/\">" +
+"	<label for=\"rating\">Sterne-Bewertung:</label>" +
+"	<input type=\"number\" id=\"rating\" name=\"rate\" min=\"1\" max=\"5\"></input><br>" +
+"	<label for=\"comment\">Nachricht:</label>" +
+"	<textarea id=\"comment\" name=\"com\" rows=\"4\" cols=\"50\"></textarea><br>" +
+"	<label for=\"e-mail\">E-Mail:</label>" +
+"	<input type=\"email\" id=\"e-mail\" name=\"mail\"></input><br>" +
+"	<label for=\"pwd\">Passwort:</label>" +
+"	<input type=\"password\" id=\"pwd\" name=\"pwd\"></input><br>" +
+"	<input type=\"submit\" value=\"submit\">" +
+"</form>";
+		//
+		cmd.Dispose();
+		//HandelGetIndex(context,ref document);
+		document += Program.docEnd;
+		var bytes = Encoding.UTF8.GetBytes(document);
+		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+		}catch(Exception e){Console.WriteLine(e.ToString());}
 	}
 }
