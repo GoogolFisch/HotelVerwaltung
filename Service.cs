@@ -165,6 +165,12 @@ public class Servicer{
 			else if(inChar >= 'a' && inChar <= 'z')
 				outStr += inChar;
 				*/
+			else if(inChar == '<')
+				outStr += "&lt;";
+			else if(inChar == '>')
+				outStr += "&gt;";
+			else if(inChar == '&')
+				outStr += "&amp;";
 			else if(inChar >= '(' && inChar <= '~')
 				outStr += inChar;
 			else{
@@ -175,6 +181,38 @@ public class Servicer{
 			}
 		}
 		return outStr.Trim();
+	}
+	public static string DecodeEscaped(string hexString){
+		byte[] asBytes = new byte[4];
+		int byteIndex = 0;
+		string strOut = "";
+		for(int stringIndex = 0;stringIndex < hexString.Length;stringIndex++){
+			if(hexString[stringIndex] >= '(')
+				strOut += hexString[stringIndex];
+			else{
+				while(hexString[stringIndex] == '%'){
+					stringIndex++;
+					// upper half
+					int part = hexString[stringIndex] - '0';
+					if(part > 10){
+						part -= 10 + '@' - '0';
+					}
+					part <<= 4;
+					asBytes[byteIndex / 2] = (byte)part;
+					stringIndex++;
+					// lower half
+					part = (byte)hexString[stringIndex] - '0';
+					if(part > 10){
+						part -= 10 + '@' - '0';
+					}
+					part <<= 4;
+					asBytes[byteIndex >> 1] = (byte)part;
+				}
+				// encode to outString
+				strOut += System.Text.Encoding.UTF8.GetString(asBytes, 0, byteIndex >> 1);
+			}
+		}
+		return strOut;
 	}
 	
         public static int GetOpenPort()

@@ -72,7 +72,7 @@ public class Program{
 		service.EnsureTableFormat("Raum","CREATE TABLE `Raum` ( `Raum_ID` int(11) NOT NULL AUTO_INCREMENT, `Kosten` decimal(6,2) NOT NULL, `anzBetten` int(2) NOT NULL, `RaumTyp` varchar(2) NOT NULL, `ZimmerNum` int(11) NOT NULL, PRIMARY KEY (`Raum_ID`))");
 		service.EnsureTableFormat("Buchungen","CREATE TABLE `Buchungen` ( `Buchungs_ID` int(11) NOT NULL AUTO_INCREMENT, `Kunden_ID` int(11) NOT NULL, `BuchungsDatum` datetime NOT NULL, `BuchungStart` date NOT NULL, `BuchungEnde` date NOT NULL, PRIMARY KEY (`Buchungs_ID`))");
 		service.EnsureTableFormat("ZimmerBuchung","CREATE TABLE `ZimmerBuchung` ( `Buchungs_ID` int(11) NOT NULL, `Raum_ID` int(11) NOT NULL, PRIMARY KEY (`Buchungs_ID`,`Raum_ID`))");
-		service.EnsureTableFormat("Bewertung","");
+		service.EnsureTableFormat("Bewertung","CREATE TABLE `Bewertung` ( `Kunden_ID` int(11) NOT NULL, `Sterne` int(1) NOT NULL, `Nachricht` text NOT NULL, PRIMARY KEY (`Kunden_ID`))");
 		// register everything!
 		// register funny logical stuff
 		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),HandelHttpPrint);
@@ -292,6 +292,10 @@ public class Program{
 		}
 		string fName = hidParam["fname"];
 		string lName = hidParam["lname"];
+		if(fName.Length > 19 || lName.Length > 19){
+			document += "Ihr Name ist viel zu lang!";
+			return;
+		}
 		string eMail = hidParam["mail"];
 		string birth = hidParam["birth"];
 		// check if both are correct
@@ -332,6 +336,7 @@ public class Program{
 		cmd.Dispose();
 	}
 	private static async Task HandelHttpAccount(HttpListenerContext context,CancellationToken cancellationToken){
+		//try{
 		// TODO split into seperate functions!
 		//try{
 		// check if is allowed
@@ -627,6 +632,16 @@ END_TRY_BOOK:
 "	<input type=\"password\" id=\"pwd\" name=\"pwd\"></input><br>" +
 "	<input type=\"submit\" value=\"submit\">" +
 "</form>";
+		cmd.CommandText = "SELECT CONCAT(k.VorName,' ',k.NachName),b.Sterne,b.Nachricht FROM Bewertung b JOIN Kunden k ON k.Kunden_ID = b.Kunden_ID ORDER BY rand() LIMIT 5";
+		document += "Hier sind weitere Bewertungen:<br>";
+		rdr = cmd.ExecuteReader();
+		while(rdr.Read()){
+			string msg = rdr.GetString(2);
+			msg = Servicer.DecodeEscaped(msg);
+			document += $"<div>Von:{rdr.GetString(0)} mit {rdr.GetInt32(1)} Sternen: {msg}</div>";
+		}
+		rdr.Dispose();
+		rdr.Close();
 		//
 		cmd.Dispose();
 		//HandelGetIndex(context,ref document);
