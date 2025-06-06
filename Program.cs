@@ -76,33 +76,6 @@ public class Program{
 		// register everything!
 		// register funny logical stuff
 		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),HandelHttpPrint);
-		service.server.Handles(str => (str == "/tables" || str.StartsWith("/tables/")),async (context,cancellationToken) => {
-			context.Response.ContentEncoding = Encoding.UTF8;
-			context.Response.ContentType = "text/plain";
-			string document;
-			string tblName = context.Request.RawUrl.Substring(7);
-			Console.WriteLine($"<{tblName}>");
-			if(tblName == ""){
-				document = "Tables:\n";
-				foreach(string tbl in service.existingTables){
-					document += tbl + "\n";
-				}
-			}
-			else{
-				document = $"Table: {tblName}\n";
-				var schema = service.con.GetSchema(tblName);
-				Console.WriteLine(document);
-				document += ConcatAllTypes(schema);
-				Console.WriteLine(document);
-				/*foreach (System.Data.DataColumn col in schema.Columns)
-				{
-					document += $"{col.ColumnName} - ";
-				} */
-				document += Servicer.GetTableData(schema);
-			}
-			byte[] bytes = Encoding.UTF8.GetBytes(document);
-			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-		});
 		service.server.HandlesPath("/status", HandelHttpStatus);
 		service.server.HandlesPath("/try-register", HandelHttpRegister);
 		service.server.HandlesPath("/register", HandelHttpRegister);
@@ -484,9 +457,7 @@ DISPOSE_CMD_BOOK:
 		Dictionary<string,string> hidParam = Servicer.GetHiddenParameters(context.Request);
 		string document = Program.docStart;
 		bool retVal = service.TryLogin(hidParam);
-		if(retVal){
-			document += "Ihre Buchung war erfolgreich!";
-		}else{
+		if(!retVal){
 			document += "Falsches EMail oder Passwort!";
 			goto END_TRY_BOOK;
 		}
@@ -502,6 +473,8 @@ DISPOSE_CMD_BOOK:
 			document += "\nIn vergangenen Tagen kann man nicht buchen";
 			goto END_TRY_BOOK;
 		}
+		// taken the happy path
+		document += "Ihre Buchung war erfolgreich!";
 		//
 		HandelPostBookQuerying(ref document,hidParam,starting,ending);
 END_TRY_BOOK:
