@@ -225,15 +225,15 @@ public class Program{
 			document += 
 "<form action=\"/register\" method=\"post\" role=\"form\">" +
 "	<label for=\"fname\">Erstname:</label>" +
-"	<input type=\"text\" id=\"fname\" name=\"fname\"></input><br>" +
+"	<input type=\"text\" id=\"fname\" name=\"fname\" required></input><br>" +
 "	<label for=\"lname\">Nachname:</label>" +
-"	<input type=\"text\" id=\"lname\" name=\"lname\"></input><br>" +
+"	<input type=\"text\" id=\"lname\" name=\"lname\" required></input><br>" +
 "	<label for=\"e-mail\">E-Mail:</label>" +
-"	<input type=\"email\" id=\"e-mail\" name=\"mail\"></input><br>" +
+"	<input type=\"email\" id=\"e-mail\" name=\"mail\" required></input><br>" +
 "	<label for=\"birth\">Geburtstag:</label>" +
-"	<input type=\"date\" id=\"birth\" name=\"birth\"></input><br>" +
+"	<input type=\"date\" id=\"birth\" name=\"birth\" required></input><br>" +
 "	<label for=\"pwd\">Passwort:</label>" +
-"	<input type=\"password\" id=\"pwd\" name=\"pwd\"></input><br>" +
+"	<input type=\"password\" id=\"pwd\" name=\"pwd\" required></input><br>" +
 "	<input type=\"submit\" value=\"submit\">" +
 "</form>" +
 "<a href=\"login\">Login</a>";
@@ -267,9 +267,9 @@ public class Program{
 			document += 
 "<form action=\"/login\" method=\"post\" role=\"form\">" +
 "	<label for=\"e-mail\">E-Mail:</label>" +
-"	<input type=\"email\" id=\"e-mail\" name=\"mail\"></input><br>" +
+"	<input type=\"email\" id=\"e-mail\" name=\"mail\" required></input><br>" +
 "	<label for=\"pwd\">Passwort:</label>" +
-"	<input type=\"password\" id=\"pwd\" name=\"pwd\"></input><br>" +
+"	<input type=\"password\" id=\"pwd\" name=\"pwd\" required></input><br>" +
 "	<input type=\"submit\" value=\"submit\">" +
 "</form>" +
 "<a href=\"register\">registreire ein Account</a>";
@@ -528,16 +528,16 @@ END_TRY_BOOK:
 		document +=
 		"<form method=\"post\" role=\"form\" action=\"/book\">" +
 			"<label for=\"from\">Datum von:</label>" +
-			$"<input type=\"date\" id=\"from\" name=\"from\" onchange=\"total_update()\" min=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" value=\"{tomorrow.ToString(Servicer.yyyymmdd)}\"></input><br>";
+			$"<input type=\"date\" id=\"from\" name=\"from\" onchange=\"total_update()\" min=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" value=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" required></input><br>";
 		// limit the till part
 		tomorrow.AddDays(1d);
 		document +=
 			"<label for=\"till\">Datum bis:</label>" +
-			$"<input type=\"date\" id=\"till\" name=\"till\" onchange=\"total_update()\" min=\"{tomorrow.ToString(Servicer.yyyymmdd)}\"></input><br>" +
+			$"<input type=\"date\" id=\"till\" name=\"till\" onchange=\"total_update()\" min=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" required></input><br>" +
 			"<label for=\"mail\">E-Mail:</label>" +
-			"<input type=\"email\" id=\"mail\" name=\"mail\"></input><br>" +
+			"<input type=\"email\" id=\"mail\" name=\"mail\" required></input><br>" +
 			"<label for=\"pwd\">Passwort:</label>" +
-			"<input type=\"password\" id=\"pwd\" name=\"pwd\"></input><br>" +
+			"<input type=\"password\" id=\"pwd\" name=\"pwd\" required></input><br>" +
 			"<div class=\"flex-down\">" +
 			"<div id=\"costing\">Kostet: $0</div>" +
 			"<button>Buchen!</button>";
