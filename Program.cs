@@ -83,6 +83,7 @@ public class Program{
 		service.server.HandlesPath("/login", HandelHttpLogin);
 		service.server.Handles( path => path.StartsWith("/account/"), HandelHttpAccount);
 		service.server.HandlesPath("/try-book", HandelHttpBook);
+		service.server.HandlesPath("/try-food", async (context, cancellationToken) => { HandelHttpStatus(context, cancellationToken); });
 		// from service.server.HandlesStaticFile("/book", "web-files/book.html");
 		service.server.HandlesPath("/book", HandelHttpBook);
 		service.server.Handles(
