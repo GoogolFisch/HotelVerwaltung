@@ -62,6 +62,14 @@ a.right {
 	display: flex;
 	flex-direction: column;
 }
+.flexing-left{
+	display: flex;
+	flex-direction: row;
+}
+.Bewertung {
+	padding-left:20%;
+	align: right;
+}
 
 .rooms.rooms-select{
 	padding: 1rem;

@@ -171,7 +171,7 @@ public class Servicer{
 				outStr += "&gt;";
 			else if(inChar == '&')
 				outStr += "&amp;";
-			else if(inChar >= '(' && inChar <= '~')
+			else if(inChar >= '(')// && inChar <= '~')
 				outStr += inChar;
 			else{
 				byte[] charCode = Encoding.UTF8.GetBytes(new char[]{inChar});
@@ -189,13 +189,17 @@ public class Servicer{
 		for(int stringIndex = 0;stringIndex < hexString.Length;stringIndex++){
 			if(hexString[stringIndex] >= '(')
 				strOut += hexString[stringIndex];
+			else if(hexString[stringIndex] == ' ')
+				strOut += hexString[stringIndex];
+			else if(hexString[stringIndex] == '&')
+				strOut += hexString[stringIndex];
 			else{
 				while(hexString[stringIndex] == '%'){
 					stringIndex++;
 					// upper half
 					int part = hexString[stringIndex] - '0';
 					if(part > 10){
-						part -= 10 + '@' - '0';
+						part += 10 - 'A' + '0';
 					}
 					part <<= 4;
 					asBytes[byteIndex / 2] = (byte)part;
@@ -203,10 +207,10 @@ public class Servicer{
 					// lower half
 					part = (byte)hexString[stringIndex] - '0';
 					if(part > 10){
-						part -= 10 + '@' - '0';
+						part += 10 - 'A' + '0';
 					}
-					part <<= 4;
-					asBytes[byteIndex >> 1] = (byte)part;
+					//part <<= 4;
+					asBytes[byteIndex >> 1] |= (byte)part;
 				}
 				// encode to outString
 				strOut += System.Text.Encoding.UTF8.GetString(asBytes, 0, byteIndex >> 1);

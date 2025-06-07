@@ -15,7 +15,7 @@ public class Program{
 	public static DateTime serverStartTime;// = DateTime.Now;
 	public static Servicer service;
 	public static bool keepAlive = true;
-	public const string docStart = "<!DOCTYPE html><html><head>" +
+	public const string docStart = "<!DOCTYPE html> <meta charset=\"UTF-8\"> <html><head>" +
 		"<link rel=\"stylesheet\" href=\"/main.css\">" +
 		"</head><body>" +
 		"<div class=\"navbar\">" +
@@ -343,16 +343,28 @@ public class Program{
 		MySqlDataReader pref = cmd.ExecuteReader();
 		pref.Read();
 		// displaying hello
-		document +=
-		$"<div id=\"account\">Hello {pref.GetString(1)} {pref.GetString(2)}<br>" +
-		$"E-Mail: {pref.GetString(3)}<br>" +
+		document += "<div class=\"flexing-left\">" +
+		$"<div id=\"account\">Hello {Servicer.DecodeEscaped(pref.GetString(1))} {Servicer.DecodeEscaped(pref.GetString(2))}<br>" +
+		$"E-Mail: {Servicer.DecodeEscaped(pref.GetString(3))}<br>" +
 		$"Geboren Am: {pref.GetDateTime(4).ToString(Servicer.ddmmyyyy)}<br>" +
 		$"Account_ID:{pref.GetInt32(0)}<br>" +
 		$"Erstellt am:{pref.GetDateTime(5).ToString($"{Servicer.ddmmyyyy} {Servicer.hhmmss}")}<br>" +
 		$"<button onclick=\"accountStartEdit()\">Editiere</button></div>" +
-		"<script src=\"/scripts/account-edit.js\"></script></div>";
+		"<script src=\"/scripts/account-edit.js\"></script>";
 		pref.Close();
 		pref.Dispose();
+		// you can remove your rating XXX
+		document += "<div class=\"Bewertung\">";
+		cmd.CommandText = $"SELECT Sterne,Nachricht FROM Bewertung WHERE Kunden_ID = {accId}";
+		pref = cmd.ExecuteReader();
+		if(pref.Read()){
+			document += "Sie haben eine Bewertung hinterlegt.<br>";
+			document += $"Bewertung: {pref.GetInt32(0)} Sterne <br> {pref.GetString(1)}";
+		}
+		document += "</div></div>";
+		pref.Close();
+		pref.Dispose();
+		// lising each booking
 		List<BookingInfo> bkInfos = service.GetBookingFromKundenID(accId);
 
 		document += "<div style=\"width:fit-content\">";
@@ -611,7 +623,7 @@ END_TRY_BOOK:
 		while(rdr.Read()){
 			string msg = rdr.GetString(2);
 			msg = Servicer.DecodeEscaped(msg);
-			document += $"<div>Von:{rdr.GetString(0)} mit {rdr.GetInt32(1)} Sternen: {msg}</div>";
+			document += $"<div>Von:{Servicer.DecodeEscaped(rdr.GetString(0))} mit {rdr.GetInt32(1)} Sternen: {msg}</div>";
 		}
 		rdr.Dispose();
 		rdr.Close();
