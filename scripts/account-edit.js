@@ -14,15 +14,15 @@ function accountStartEdit(){
 	console.log(firstName + " " + lastName + "\n" + email + " " + birth);
 	accInfo.innerHTML = `<form method="post">
 		<label for="fname">Vorname:</label>
-		<input type="text" id="fname" name="fname" value="${firstName}"></input><br>
+		<input type="text" id="fname" name="fname" value="${firstName}" required></input><br>
 		<label for="lname">Nachname:</label>
-		<input type="text" id="lname" name="lname" value="${lastName}"></input><br>
+		<input type="text" id="lname" name="lname" value="${lastName}" required></input><br>
 		<label for="mail">E-Mail:</label>
-		<input type="email" id="mail" name="mail" value="${email}"></input><br>
+		<input type="email" id="mail" name="mail" value="${email}" required></input><br>
 		<label for="birth">E-Mail:</label>
-		<input type="date" id="birth" name="birth" value="${birth}"></input><br>
+		<input type="date" id="birth" name="birth" value="${birth}" required></input><br>
 		<label for="tpwd">altes Password</label>
-		<input type="password" id="tpwd" name="pwd"></input><br>
+		<input type="password" id="tpwd" name="pwd" required></input><br>
 		<label for="n1pwd">neues Password</label>
 		<input type="password" id="n1pwd" name="npwd"></input><br>
 		<label for="n2pwd">erneut Password</label>

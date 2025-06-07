@@ -15,7 +15,7 @@ public class Program{
 	public static DateTime serverStartTime;// = DateTime.Now;
 	public static Servicer service;
 	public static bool keepAlive = true;
-	public const string docStart = "<!DOCTYPE html><html><head>" +
+	public const string docStart = "<!DOCTYPE html> <meta charset=\"UTF-8\"> <html><head>" +
 		"<link rel=\"stylesheet\" href=\"/main.css\">" +
 		"</head><body>" +
 		"<div class=\"navbar\">" +
@@ -72,44 +72,20 @@ public class Program{
 		service.EnsureTableFormat("Raum","CREATE TABLE `Raum` ( `Raum_ID` int(11) NOT NULL AUTO_INCREMENT, `Kosten` decimal(6,2) NOT NULL, `anzBetten` int(2) NOT NULL, `RaumTyp` varchar(2) NOT NULL, `ZimmerNum` int(11) NOT NULL, PRIMARY KEY (`Raum_ID`))");
 		service.EnsureTableFormat("Buchungen","CREATE TABLE `Buchungen` ( `Buchungs_ID` int(11) NOT NULL AUTO_INCREMENT, `Kunden_ID` int(11) NOT NULL, `BuchungsDatum` datetime NOT NULL, `BuchungStart` date NOT NULL, `BuchungEnde` date NOT NULL, PRIMARY KEY (`Buchungs_ID`))");
 		service.EnsureTableFormat("ZimmerBuchung","CREATE TABLE `ZimmerBuchung` ( `Buchungs_ID` int(11) NOT NULL, `Raum_ID` int(11) NOT NULL, PRIMARY KEY (`Buchungs_ID`,`Raum_ID`))");
+		service.EnsureTableFormat("Bewertung","CREATE TABLE `Bewertung` ( `Kunden_ID` int(11) NOT NULL, `Sterne` int(1) NOT NULL, `Nachricht` text NOT NULL, PRIMARY KEY (`Kunden_ID`))");
 		// register everything!
 		// register funny logical stuff
-		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),async (context,cancellationToken) => HandelHttpPrint(context,cancellationToken));
-		service.server.Handles(str => (str == "/tables" || str.StartsWith("/tables/")),async (context,cancellationToken) => {
-			context.Response.ContentEncoding = Encoding.UTF8;
-			context.Response.ContentType = "text/plain";
-			string document;
-			string tblName = context.Request.RawUrl.Substring(7);
-			Console.WriteLine($"<{tblName}>");
-			if(tblName == ""){
-				document = "Tables:\n";
-				foreach(string tbl in service.existingTables){
-					document += tbl + "\n";
-				}
-			}
-			else{
-				document = $"Table: {tblName}\n";
-				var schema = service.con.GetSchema(tblName);
-				Console.WriteLine(document);
-				document += ConcatAllTypes(schema);
-				Console.WriteLine(document);
-				/*foreach (System.Data.DataColumn col in schema.Columns)
-				{
-					document += $"{col.ColumnName} - ";
-				} */
-				document += Servicer.GetTableData(schema);
-			}
-			byte[] bytes = Encoding.UTF8.GetBytes(document);
-			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-		});
-		service.server.HandlesPath("/status", async (context, cancellationToken) => {HandelHttpStatus(context,cancellationToken);});
-		service.server.HandlesPath("/try-register", async (context, cancellationToken) => { HandelHttpRegister(context,cancellationToken); });
-		service.server.HandlesPath("/try-login", async (context, cancellationToken) => { HandelHttpLogin(context,cancellationToken); });
-		service.server.Handles( path => path.StartsWith("/account/"), async (context, cancellationToken) => { HandelHttpAccount(context, cancellationToken); });
-		service.server.HandlesPath("/try-book", async (context, cancellationToken) => { HandelHttpBook(context,cancellationToken); });
+		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),HandelHttpPrint);
+		service.server.HandlesPath("/status", HandelHttpStatus);
+		service.server.HandlesPath("/try-register", HandelHttpRegister);
+		service.server.HandlesPath("/register", HandelHttpRegister);
+		service.server.HandlesPath("/try-login", HandelHttpLogin);
+		service.server.HandlesPath("/login", HandelHttpLogin);
+		service.server.Handles( path => path.StartsWith("/account/"), HandelHttpAccount);
+		service.server.HandlesPath("/try-book", HandelHttpBook);
 		service.server.HandlesPath("/try-food", async (context, cancellationToken) => { HandelHttpStatus(context, cancellationToken); });
-        // from service.server.HandlesStaticFile("/book", "web-files/book.html");
-        service.server.HandlesPath("/book", async (context, cancellationToken) => { HandelHttpBook(context,cancellationToken); });
+		// from service.server.HandlesStaticFile("/book", "web-files/book.html");
+		service.server.HandlesPath("/book", HandelHttpBook);
 		service.server.Handles(
 				path => (path.StartsWith("/images/") ||
 					 path.StartsWith("/scripts/")) &&
@@ -124,18 +100,20 @@ public class Program{
 				cancellationToken
 			).ConfigureAwait(false);
 		});
+		//
+		service.server.HandlesPath("/", HandelHttpIndex);
 		// register local-files
 		service.server.HandlesStaticFile("/main.css", "web-files/main.css");
-		service.server.HandlesStaticFile("/", "web-files/index.html");
+		//service.server.HandlesStaticFile("/", "web-files/index.html");
 		service.server.HandlesStaticFile("/food", "web-files/food.html");
 		service.server.HandlesStaticFile("/location", "web-files/location.html");
 		service.server.HandlesStaticFile("/contact", "web-files/contact.html");
-		service.server.HandlesStaticFile("/login", "web-files/login.html"); // move to handler!
-		service.server.HandlesStaticFile("/register", "web-files/register.html"); // move to handler!
+		//service.server.HandlesStaticFile("/login", "web-files/login.html"); // move to handler!
+		//service.server.HandlesStaticFile("/register", "web-files/register.html"); // move to handler!
 		service.server.HandlesStaticFile("/favicon.ico", "web-files/favicon-icon-192x192.png");
 
-        //
-        service.Start();
+		//
+		service.Start();
 		// https://medium.com/@rainer_8955/gracefully-shutdown-c-apps-2e9711215f6d
 		Console.CancelKeyPress += (_, ea) =>
 		{
@@ -151,8 +129,8 @@ public class Program{
 		}
 		// stopping
 		service.Stop();
-	} // ""
-	private static async void HandelHttpPrint(HttpListenerContext context,CancellationToken cancellationToken){
+	}
+	private static async Task HandelHttpPrint(HttpListenerContext context,CancellationToken cancellationToken){
 		// setup stuff
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/plain";
@@ -176,7 +154,7 @@ public class Program{
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		return;
 	}
-	private static async void HandelHttpStatus(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelHttpStatus(HttpListenerContext context,CancellationToken cancellationToken){
 		// print current status
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
@@ -191,65 +169,91 @@ public class Program{
 				"<a href=\"/stop\">Stop Server</a><br>"+
 				"<a href=\"https://github.com/javidsho/LightHTTP\">LightHttp</a>" + Program.docEnd);
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-		return;
+		return ;
 	}
-	private static async void HandelHttpRegister(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelHttpRegister(HttpListenerContext context,CancellationToken cancellationToken){
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
+		string document = Program.docStart;
 		if(context.Request.HttpMethod == "POST"){
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
-			string document = Program.docStart;
 			int retVal = service.TryRegisterUser(hidParam);
 			if(retVal == 0){
 				document += "registering successfull for:<br>";
 				document += $"{hidParam["fname"]} ";
 				document += $"{hidParam["lname"]}";
 				document +=	"<script>setTimeout("+
-				        "\"window.location.href='/'\",2500);</script>";
+				        "\"window.location.href='/'\",1000);</script>";
 			} else if(retVal == 1){
 				document += "some one already hash such an account";
 				document +=	"<script>setTimeout("+
-				        "\"window.location.href='/register'\",2500"+
+				        "\"window.location.href='/register'\",1000"+
 					");</script>";
 			}else if(retVal == 2){
 				document += "Not correct format!";
 				document +=	"<script>setTimeout("+
-				        "\"window.location.href='/register'\",2500"+
+				        "\"window.location.href='/register'\",1000"+
 					");</script>";
 			}
-			document += Program.docEnd;
-			context.Response.ContentType = "text/html";
-			byte[] bytes = Encoding.UTF8.GetBytes(document);
-			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-			return;
+		}else{
+			document += 
+"<form action=\"/register\" method=\"post\" role=\"form\">" +
+"	<label for=\"fname\">Erstname:</label>" +
+"	<input type=\"text\" id=\"fname\" name=\"fname\" required></input><br>" +
+"	<label for=\"lname\">Nachname:</label>" +
+"	<input type=\"text\" id=\"lname\" name=\"lname\" required></input><br>" +
+"	<label for=\"e-mail\">E-Mail:</label>" +
+"	<input type=\"email\" id=\"e-mail\" name=\"mail\" required></input><br>" +
+"	<label for=\"birth\">Geburtstag:</label>" +
+"	<input type=\"date\" id=\"birth\" name=\"birth\" required></input><br>" +
+"	<label for=\"pwd\">Passwort:</label>" +
+"	<input type=\"password\" id=\"pwd\" name=\"pwd\" required></input><br>" +
+"	<input type=\"submit\" value=\"submit\">" +
+"</form>" +
+"<a href=\"login\">Login</a>";
 		}
+		document += Program.docEnd;
+		context.Response.ContentType = "text/html";
+		byte[] bytes = Encoding.UTF8.GetBytes(document);
+		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 	}
-	private static async void HandelHttpLogin(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelHttpLogin(HttpListenerContext context,CancellationToken cancellationToken){
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
-		//try{
+		string document = Program.docStart;
+		try{
 		if(context.Request.HttpMethod == "POST"){
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
-			string document = Program.docStart;
 			bool retVal = service.TryLogin(hidParam);
 			if(retVal){
-				document += "success!";
-				document +=	"<script>setTimeout("+
-				        $"\"window.location.href='/account/{service.GetTokenFor(hidParam["mail"])}'\",500"+
-					");</script>";
+				document += "Erfolgreich!";
+				string tokString = service.GetTokenFor(hidParam["mail"]);
+				context.Response.RedirectLocation = $"/account/{tokString}";
+				document += $"<script>setTimeout(\"window.location.href='/account/{tokString}'\",100);</script>";
 			}
 			else{
-				document += "incorrect information!";
+				document += "Falsche Login details.";
 				document +=	"<script>setTimeout("+
-				        "\"window.location.href='/login'\",2500"+
+				        "\"window.location.href='/login'\",1000"+
 					");</script>";
 			}
+		}else{
+			document += 
+"<form action=\"/login\" method=\"post\" role=\"form\">" +
+"	<label for=\"e-mail\">E-Mail:</label>" +
+"	<input type=\"email\" id=\"e-mail\" name=\"mail\" required></input><br>" +
+"	<label for=\"pwd\">Passwort:</label>" +
+"	<input type=\"password\" id=\"pwd\" name=\"pwd\" required></input><br>" +
+"	<input type=\"submit\" value=\"submit\">" +
+"</form>" +
+"<a href=\"register\">registreire ein Account</a>";
 
-			var bytes = Encoding.UTF8.GetBytes(document);
-			await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-			return;
 		}
-		//}catch(Exception e){Console.WriteLine(e.ToString());}
+		document += docEnd;
+		var bytes = Encoding.UTF8.GetBytes(document);
+		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+
+		}catch(Exception e){Console.WriteLine(e.ToString());}
 	}
 	private static void HandelPostAccount(ref string document,HttpListenerContext context,int accId){
 		var hidParam = Servicer.GetHiddenParameters(context.Request);
@@ -262,6 +266,10 @@ public class Program{
 		}
 		string fName = hidParam["fname"];
 		string lName = hidParam["lname"];
+		if(fName.Length > 19 || lName.Length > 19){
+			document += "Ihr Name ist viel zu lang!";
+			return;
+		}
 		string eMail = hidParam["mail"];
 		string birth = hidParam["birth"];
 		// check if both are correct
@@ -301,7 +309,8 @@ public class Program{
 		}
 		cmd.Dispose();
 	}
-	private static async void HandelHttpAccount(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelHttpAccount(HttpListenerContext context,CancellationToken cancellationToken){
+		//try{
 		// TODO split into seperate functions!
 		//try{
 		// check if is allowed
@@ -335,16 +344,28 @@ public class Program{
 		MySqlDataReader pref = cmd.ExecuteReader();
 		pref.Read();
 		// displaying hello
-		document +=
-		$"<div id=\"account\">Hello {pref.GetString(1)} {pref.GetString(2)}<br>" +
-		$"E-Mail: {pref.GetString(3)}<br>" +
+		document += "<div class=\"flexing-left\">" +
+		$"<div id=\"account\">Hello {Servicer.DecodeEscaped(pref.GetString(1))} {Servicer.DecodeEscaped(pref.GetString(2))}<br>" +
+		$"E-Mail: {Servicer.DecodeEscaped(pref.GetString(3))}<br>" +
 		$"Geboren Am: {pref.GetDateTime(4).ToString(Servicer.ddmmyyyy)}<br>" +
 		$"Account_ID:{pref.GetInt32(0)}<br>" +
 		$"Erstellt am:{pref.GetDateTime(5).ToString($"{Servicer.ddmmyyyy} {Servicer.hhmmss}")}<br>" +
 		$"<button onclick=\"accountStartEdit()\">Editiere</button></div>" +
-		"<script src=\"/scripts/account-edit.js\"></script></div>";
+		"<script src=\"/scripts/account-edit.js\"></script>";
 		pref.Close();
 		pref.Dispose();
+		// you can remove your rating XXX
+		document += "<div class=\"Bewertung\">";
+		cmd.CommandText = $"SELECT Sterne,Nachricht FROM Bewertung WHERE Kunden_ID = {accId}";
+		pref = cmd.ExecuteReader();
+		if(pref.Read()){
+			document += "Sie haben eine Bewertung hinterlegt.<br>";
+			document += $"Bewertung: {pref.GetInt32(0)} Sterne <br> {pref.GetString(1)}";
+		}
+		document += "</div></div>";
+		pref.Close();
+		pref.Dispose();
+		// lising each booking
 		List<BookingInfo> bkInfos = service.GetBookingFromKundenID(accId);
 
 		document += "<div style=\"width:fit-content\">";
@@ -443,16 +464,14 @@ public class Program{
 DISPOSE_CMD_BOOK:
 		cmd.Dispose();
 	}
-	private static async void HandelPostBook(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelPostBook(HttpListenerContext context,CancellationToken cancellationToken){
 		try{
 		// test the account
 		Dictionary<string,string> hidParam = Servicer.GetHiddenParameters(context.Request);
 		string document = Program.docStart;
 		bool retVal = service.TryLogin(hidParam);
-		if(retVal){
-			document += "login successful!";
-		}else{
-			document += "wrong login!";
+		if(!retVal){
+			document += "Falsches EMail oder Passwort!";
 			goto END_TRY_BOOK;
 		}
 		// date checking
@@ -460,13 +479,15 @@ DISPOSE_CMD_BOOK:
 		DateTime ending = DateTime.Parse(hidParam["till"],CultureInfo.InvariantCulture);
 		//Console.WriteLine($"{starting} - {ending}");
 		if(starting > ending){
-			document += "\nout of order!";
+			document += "\nNegativer Buchungszeitraum";
 			goto END_TRY_BOOK;
 		}
 		if(ending < DateTime.Now){ // add a min time!
-			document += "\ncannot book in the past!";
+			document += "\nIn vergangenen Tagen kann man nicht buchen";
 			goto END_TRY_BOOK;
 		}
+		// taken the happy path
+		document += "Ihre Buchung war erfolgreich!";
 		//
 		HandelPostBookQuerying(ref document,hidParam,starting,ending);
 END_TRY_BOOK:
@@ -476,7 +497,7 @@ END_TRY_BOOK:
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 		}catch(Exception e){Console.WriteLine(e.ToString());}
 	}
-	private static async void HandelGetBook(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelGetBook(HttpListenerContext context,CancellationToken cancellationToken){
 		string document = Program.docStart +
 		"<script src=\"/scripts/booking.js\"></script>" +
 		"	<h1>Zimmer buchen</h1>";
@@ -484,23 +505,25 @@ END_TRY_BOOK:
 		// insert auto creation of stuff here!
 		document += "<ul>";
 		foreach(RoomInfos roomTyp in service.roomTypes){
-			document += "<li class=\"rooms\">" +
-				$"{roomTyp.ToHtml()}" +
-				$"<script>roomTypes.set(\"{roomTyp.typeName}\",{roomTyp.cost});</script>" +
-				"</li>\n";
+			document += roomTyp.ToHtml();
 		}
 		document += "</ul>";
 		// adding booking stuff
+		DateTime tomorrow = DateTime.Now; // auto limit the input
+		tomorrow.AddDays(1d);
 		document +=
 		"<form method=\"post\" role=\"form\" action=\"/book\">" +
 			"<label for=\"from\">Datum von:</label>" +
-			"<input type=\"date\" id=\"from\" name=\"from\"></input><br>" +
+			$"<input type=\"date\" id=\"from\" name=\"from\" onchange=\"total_update()\" min=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" value=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" required></input><br>";
+		// limit the till part
+		tomorrow.AddDays(1d);
+		document +=
 			"<label for=\"till\">Datum bis:</label>" +
-			"<input type=\"date\" id=\"till\" name=\"till\"></input><br>" +
+			$"<input type=\"date\" id=\"till\" name=\"till\" onchange=\"total_update()\" min=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" required></input><br>" +
 			"<label for=\"mail\">E-Mail:</label>" +
-			"<input type=\"email\" id=\"mail\" name=\"mail\"></input><br>" +
+			"<input type=\"email\" id=\"mail\" name=\"mail\" required></input><br>" +
 			"<label for=\"pwd\">Passwort:</label>" +
-			"<input type=\"password\" id=\"pwd\" name=\"pwd\"></input><br>" +
+			"<input type=\"password\" id=\"pwd\" name=\"pwd\" required></input><br>" +
 			"<div class=\"flex-down\">" +
 			"<div id=\"costing\">Kostet: $0</div>" +
 			"<button>Buchen!</button>";
@@ -515,13 +538,102 @@ END_TRY_BOOK:
 		var bytes = Encoding.UTF8.GetBytes(document);
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 	}
-	private static async void HandelHttpBook(HttpListenerContext context,CancellationToken cancellationToken){
+	private static async Task HandelHttpBook(HttpListenerContext context,CancellationToken cancellationToken){
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
 		if(context.Request.HttpMethod == "POST"){
-			HandelPostBook(context,cancellationToken);
+			await HandelPostBook(context,cancellationToken);
 			return;
 		}
-		HandelGetBook(context,cancellationToken);
+		await HandelGetBook(context,cancellationToken);
+	}
+	private static bool HandelPostIndex(HttpListenerContext context,ref string document){
+		// true -> show the menu agian
+		// false -> don't show it agian
+		var hidParam = Servicer.GetHiddenParameters(context.Request);
+		// try login to validate
+		bool retVal = service.TryLogin(hidParam);
+		if(!retVal){
+			document += "Falsches Passwort oder E-Mail addresse!";
+			//goto ACCOUNT_POST_END;
+			return true;
+		}
+		string comment = hidParam["com"];
+		string rateString = hidParam["rate"];
+		string eMail = hidParam["mail"];
+		int rateing;
+		if(!int.TryParse(rateString,out rateing)){
+			document += $"Leider ist {rateString} Keine Zahl...";
+			return true;
+		}
+		if(rateing < 0 || rateing > 5){
+			document += $"Eine Zahl zwischen 1 und 5 (inklusive) erwartet.";
+			return false;
+		}
+		MySqlCommand cmd = new MySqlCommand($"INSERT INTO Bewertung(Kunden_ID,Sterne,Nachricht) VALUES ((SELECT Kunden_ID FROM Kunden WHERE eMail = \"{eMail}\"),\"{rateing}\",\"{comment}\")",service.con);
+		try{
+			cmd.ExecuteNonQuery();
+		}catch{document += "<br>Sie haben schon hier bewertet. ";}
+		//}catch(Exception e){Console.WriteLine(e.ToString());}
+		cmd.Dispose();
+		return false;
+	}
+	private static async Task HandelHttpIndex(HttpListenerContext context,CancellationToken cancellationToken){
+		try{
+		string document = Program.docStart;
+		MySqlCommand cmd = new MySqlCommand("",service.con);
+		document += "<h1>Willkommen im Hotel Transelvanien</h1>";
+		// querying bewertungen
+		cmd.CommandText = "SELECT AVG(Sterne) FROM Bewertung";
+		MySqlDataReader rdr = cmd.ExecuteReader();
+		if(rdr.Read()){
+			if(!rdr.IsDBNull(0)){
+				//document += $"Noch niemand hat hier eine Bewertung abgegeben. ";
+				document += $"Unsere Kunden Zufiredenheit liegt bei {rdr.GetFloat(0):f1} Sternen. ";
+			}
+		}
+		rdr.Dispose();
+		rdr.Close();
+		//
+		document += "<h2>Hier finden Sie beste Zimmer</h2>" +
+			"<a href=\"/book\">Buchen</a> Sie jetzt bei uns, und finden Sie unsere schoensten Raeume.<br> Unsere Raeume sind riesig und preis wert.<br><a href=\"/book\">Buchen Sie bei uns!</a>";
+		document += "<h2>Hier finden Sie bestes Essen</h2>" +
+			"Unser <a href=\"/food\">Restaurante</a> hat fuer Sie zwischen 11:00 bis 18:00 offen!<br>Zu dem ist unser Essen super lecker und guenstig!<br><a href=\"/food\">Reservieren Sie sich einen Tisch Hier!</a>";
+		document += "<h2>Hier finden Sie bestes Service</h2>" +
+			"Unser Service ist das beste welches es gibt.<br>Wenn unser Service Ihnen nicht passt lassen Sie eine Bewertung dar.";
+		bool isPost = context.Request.HttpMethod == "POST";
+		bool handel = false;
+		if(isPost)handel = HandelPostIndex(context,ref document);
+		if(!isPost || handel)
+			document +=
+"Bewerten Sie auch!"+
+"<form method=\"post\" role=\"form\" action=\"/\">" +
+"	<label for=\"rating\">Sterne-Bewertung:</label>" +
+"	<input type=\"number\" id=\"rating\" name=\"rate\" min=\"1\" max=\"5\"></input><br>" +
+"	<label for=\"comment\">Nachricht:</label>" +
+"	<textarea id=\"comment\" name=\"com\" rows=\"4\" cols=\"50\"></textarea><br>" +
+"	<label for=\"e-mail\">E-Mail:</label>" +
+"	<input type=\"email\" id=\"e-mail\" name=\"mail\"></input><br>" +
+"	<label for=\"pwd\">Passwort:</label>" +
+"	<input type=\"password\" id=\"pwd\" name=\"pwd\"></input><br>" +
+"	<input type=\"submit\" value=\"submit\">" +
+"</form>";
+		cmd.CommandText = "SELECT CONCAT(k.VorName,' ',k.NachName),b.Sterne,b.Nachricht FROM Bewertung b JOIN Kunden k ON k.Kunden_ID = b.Kunden_ID ORDER BY rand() LIMIT 5";
+		document += "Hier sind weitere Bewertungen:<br>";
+		rdr = cmd.ExecuteReader();
+		while(rdr.Read()){
+			string msg = rdr.GetString(2);
+			msg = Servicer.DecodeEscaped(msg);
+			document += $"<div>Von:{Servicer.DecodeEscaped(rdr.GetString(0))} mit {rdr.GetInt32(1)} Sternen: {msg}</div>";
+		}
+		rdr.Dispose();
+		rdr.Close();
+		//
+		cmd.Dispose();
+		//HandelGetIndex(context,ref document);
+		document += Program.docEnd;
+		var bytes = Encoding.UTF8.GetBytes(document);
+		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+		}catch(Exception e){Console.WriteLine(e.ToString());}
 	}
 }
