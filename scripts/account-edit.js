@@ -4,10 +4,10 @@ function accountStartEdit(){
 	accInfo = document.getElementById("account");
 	innerData = accInfo.innerHTML;
 	let dat = innerData.split("<br>");
+	let email = dat[1].split(": ")[1];
 	let names = dat[0].split(" ");
 	let firstName = names[1];
 	let lastName = names[2];
-	let email = dat[1].split(": ")[1];
 	let birth = dat[2].split(": ")[1].split(".");
 	birth.reverse();
 	birth = birth.join("-");
@@ -28,6 +28,21 @@ function accountStartEdit(){
 		<label for="n2pwd">erneut Password</label>
 		<input type="password" id="n2pwd" name="n2pwd"></input><br>
 		<button>Veraender!</button>
+		</form>
+		<button onclick=\"accountCancelEdit()\">Abbrechen!</button>`;
+}
+function accountDeletionStart(){
+	accInfo = document.getElementById("account");
+	innerData = accInfo.innerHTML;
+	let dat = innerData.split("<br>");
+	let email = dat[1].split(": ")[1];
+	let startDel = document.getElementById("deletionForm");
+	startDel.innerHTML = `<form method="post" action="${window.location.pathname}/delete-account">
+		<!--<label for="mail">E-Mail:</label>-->
+		<input type="hidden" id="mail" name="mail" value="${email}"></input><br>
+		<label for="tpwd">Passwort zum löschen:</label>
+		<input type="password" id="tpwd" name="pwd" required></input><br>
+		<button>Löschen!</button>
 		</form>
 		<button onclick=\"accountCancelEdit()\">Abbrechen!</button>`;
 }

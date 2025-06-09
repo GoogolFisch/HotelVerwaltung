@@ -97,6 +97,9 @@ a.right {
 	width: 300px;
 	height: 300px;
 }
+.left-space{
+	margin-left: 15%;
+}
 .rooms div {
 	margin-left: 15px;
 }
