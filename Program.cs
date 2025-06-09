@@ -15,6 +15,7 @@ public class Program{
 	public static DateTime serverStartTime;// = DateTime.Now;
 	public static Servicer service;
 	public static bool keepAlive = true;
+	public const int CancelationTime = 3;
 	public const string docStart = "<!DOCTYPE html> <meta charset=\"UTF-8\"> <html><head>" +
 		"<link rel=\"stylesheet\" href=\"/main.css\">" +
 		"</head><body>" +
@@ -309,8 +310,25 @@ public class Program{
 		}
 		cmd.Dispose();
 	}
+	private static void HandelAccountDeletion(HttpListenerContext context, int accId,ref string document){
+		Dictionary<string,string> hidParam = Servicer.GetHiddenParameters(context.Request);
+		bool retVal = service.TryLogin(hidParam);
+		if(!retVal){
+			document += "Falsche EMail oder Passwort!<br>Nichts wird gelöscht!";
+			return;
+		}
+		MySqlCommand cmd = new MySqlCommand($"DELETE FROM Kunden WHERE Kunden_Id = {accId}",service.con);
+		cmd.ExecuteNonQuery();
+		// also remove Bookings that are in the future
+		cmd.CommandText = $"DELETE FROM Buchungen WHERE Kunden_Id = {accId} AND BuchungStart > {DateTime.Now.AddDays(CancelationTime).ToString(Servicer.yyyymmdd)}";
+		cmd.ExecuteNonQuery();
+		document += "Ihr account wurde gelöscht!";
+		document +=	"<script>setTimeout("+
+			"\"window.location.href='/'\",1000);</script>";
+		cmd.Dispose();
+	}
 	private static async Task HandelHttpAccount(HttpListenerContext context,CancellationToken cancellationToken){
-		//try{
+		try{
 		// TODO split into seperate functions!
 		//try{
 		// check if is allowed
@@ -331,8 +349,17 @@ public class Program{
 		}
 		// cancel
 		if(splittings.Length > 3){
-			int.TryParse(splittings[3].Substring(7),out int bookingNum);
-			HandelAccountCancelBooking(context,accId,ref document,bookingNum);
+			if(splittings[3].StartsWith("storno-")){
+				int.TryParse(splittings[3].Substring(7),out int bookingNum);
+				HandelAccountCancelBooking(context,accId,ref document,bookingNum);
+			}else if(splittings[3].StartsWith("delete-account")){
+				//int.TryParse(splittings[3].Substring(7),out int bookingNum);
+				HandelAccountDeletion(context,accId,ref document);
+				document += Program.docEnd;
+				var pre_bytes = Encoding.UTF8.GetBytes(document);
+				await context.Response.OutputStream.WriteAsync(pre_bytes, 0, pre_bytes.Length);
+				return;
+			}
 		}
 		MySqlCommand cmd;
 		// changing customer data
@@ -350,7 +377,8 @@ public class Program{
 		$"Geboren Am: {pref.GetDateTime(4).ToString(Servicer.ddmmyyyy)}<br>" +
 		$"Account_ID:{pref.GetInt32(0)}<br>" +
 		$"Erstellt am:{pref.GetDateTime(5).ToString($"{Servicer.ddmmyyyy} {Servicer.hhmmss}")}<br>" +
-		$"<button onclick=\"accountStartEdit()\">Editiere</button></div>" +
+		$"<button onclick=\"accountStartEdit()\">Editiere</button>" +
+		$"<button onclick=\"accountDeletionStart()\" class=\"left-space\">Löschen</button></div>" +
 		"<script src=\"/scripts/account-edit.js\"></script>";
 		pref.Close();
 		pref.Dispose();
@@ -360,9 +388,9 @@ public class Program{
 		pref = cmd.ExecuteReader();
 		if(pref.Read()){
 			document += "Sie haben eine Bewertung hinterlegt.<br>";
-			document += $"Bewertung: {pref.GetInt32(0)} Sterne <br> {pref.GetString(1)}";
+			document += $"Bewertung: {pref.GetInt32(0)} Sterne <br> {Servicer.DecodeEscaped(pref.GetString(1))}";
 		}
-		document += "</div></div>";
+		document += "<div id=\"deletionForm\"></div></div></div>";
 		pref.Close();
 		pref.Dispose();
 		// lising each booking
@@ -397,7 +425,7 @@ public class Program{
 			if(bkinf.bookingStart > DateTime.Now)
 				document += $"<button onclick=\"cancelBooking({bkinf.bookingId});\">Stornieren</button>";
 			else
-				document += $"Stornieren nicht moeglich.";
+				document += $"Stornieren nicht möglich.";
 			document += "</div>";
 
 			pref.Close();
@@ -408,7 +436,7 @@ public class Program{
 		document += Program.docEnd;
 		var bytes = Encoding.UTF8.GetBytes(document);
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-		//}catch(Exception e){Console.WriteLine(e.ToString());}
+		}catch(Exception e){Console.WriteLine(e.ToString());}
 	}
 
 	private static void HandelPostBookQuerying(ref string document,Dictionary<string,string> hidParam,DateTime starting,DateTime ending){
@@ -432,7 +460,7 @@ public class Program{
 			pref.Close();
 		}
 		if(!canDoIt){
-			document += "Sie haben mehr Raeume gebucht, als moeglich sind!";
+			document += "Sie haben mehr Räume gebucht, als möglich sind!";
 			goto DISPOSE_CMD_BOOK;
 		}
 		string sanMail = hidParam["mail"];
@@ -486,6 +514,10 @@ DISPOSE_CMD_BOOK:
 			document += "\nIn vergangenen Tagen kann man nicht buchen";
 			goto END_TRY_BOOK;
 		}
+		if(ending < DateTime.Now.AddDays(CancelationTime)){ // add a min time!
+			document += "\nNach der Stornierfrist kann nicht mehr gebucht werden.";
+			goto END_TRY_BOOK;
+		}
 		// taken the happy path
 		document += "Ihre Buchung war erfolgreich!";
 		//
@@ -509,17 +541,15 @@ END_TRY_BOOK:
 		}
 		document += "</ul>";
 		// adding booking stuff
-		DateTime tomorrow = DateTime.Now; // auto limit the input
-		tomorrow.AddDays(1d);
+		DateTime tomorrow = DateTime.Now.AddDays(CancelationTime); // auto limit the input
 		document +=
 		"<form method=\"post\" role=\"form\" action=\"/book\">" +
 			"<label for=\"from\">Datum von:</label>" +
 			$"<input type=\"date\" id=\"from\" name=\"from\" onchange=\"total_update()\" min=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" value=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" required></input><br>";
 		// limit the till part
-		tomorrow.AddDays(1d);
 		document +=
 			"<label for=\"till\">Datum bis:</label>" +
-			$"<input type=\"date\" id=\"till\" name=\"till\" onchange=\"total_update()\" min=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" required></input><br>" +
+			$"<input type=\"date\" id=\"till\" name=\"till\" onchange=\"total_update()\" min=\"{tomorrow.AddDays(1).ToString(Servicer.yyyymmdd)}\" required></input><br>" +
 			"<label for=\"mail\">E-Mail:</label>" +
 			"<input type=\"email\" id=\"mail\" name=\"mail\" required></input><br>" +
 			"<label for=\"pwd\">Passwort:</label>" +
@@ -534,6 +564,9 @@ END_TRY_BOOK:
 		}
 		document += "</div>" +
 		"</form>";
+		document += $"Das Buchen ist nur {CancelationTime} Tage vor dem eigentlichem Tag möglich<br>" +
+			$"Das Stornieren ist auch nur bis zu {CancelationTime} Tage vorher möglich, <br>" +
+			"Stornieren können Sie auf Ihrer <a href=\"/login\">Account</a> Seite.";
 		document += Program.docEnd;
 		var bytes = Encoding.UTF8.GetBytes(document);
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
@@ -570,7 +603,7 @@ END_TRY_BOOK:
 			document += $"Eine Zahl zwischen 1 und 5 (inklusive) erwartet.";
 			return false;
 		}
-		MySqlCommand cmd = new MySqlCommand($"INSERT INTO Bewertung(Kunden_ID,Sterne,Nachricht) VALUES ((SELECT Kunden_ID FROM Kunden WHERE eMail = \"{eMail}\"),\"{rateing}\",\"{comment}\")",service.con);
+		MySqlCommand cmd = new MySqlCommand($"REPLACE INTO Bewertung(Kunden_ID,Sterne,Nachricht) VALUES ((SELECT Kunden_ID FROM Kunden WHERE eMail = \"{eMail}\"),\"{rateing}\",\"{comment}\")",service.con);
 		try{
 			cmd.ExecuteNonQuery();
 		}catch{document += "<br>Sie haben schon hier bewertet. ";}
@@ -596,7 +629,7 @@ END_TRY_BOOK:
 		rdr.Close();
 		//
 		document += "<h2>Hier finden Sie beste Zimmer</h2>" +
-			"<a href=\"/book\">Buchen</a> Sie jetzt bei uns, und finden Sie unsere schoensten Raeume.<br> Unsere Raeume sind riesig und preis wert.<br><a href=\"/book\">Buchen Sie bei uns!</a>";
+			"<a href=\"/book\">Buchen</a> Sie jetzt bei uns, und finden Sie unsere schönsten Räume.<br> Unsere Räume sind riesig und preis wert.<br><a href=\"/book\">Buchen Sie bei uns!</a>";
 		document += "<h2>Hier finden Sie bestes Essen</h2>" +
 			"Unser <a href=\"/food\">Restaurante</a> hat fuer Sie zwischen 11:00 bis 18:00 offen!<br>Zu dem ist unser Essen super lecker und guenstig!<br><a href=\"/food\">Reservieren Sie sich einen Tisch Hier!</a>";
 		document += "<h2>Hier finden Sie bestes Service</h2>" +

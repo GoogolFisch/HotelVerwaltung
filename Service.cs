@@ -15,7 +15,7 @@ using System.Runtime.InteropServices;
 
 public class Servicer{
 
-	public static string tokenRandomData = "stringRandomData" + Random.Shared.Next(1,100);
+	public static readonly string tokenRandomData = "stringRandomData" + Random.Shared.Next(1,10000);
 	public const string sqlServerString = @"server=localhost;userid=hotelServer;password=1234;database=hotelServer";
 	public const string yyyymmdd = "yyyy-MM-dd";
 	public const string ddmmyyyy = "dd.MM.yyyy";
