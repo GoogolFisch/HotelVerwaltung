@@ -44,6 +44,8 @@ function accountDeletionStart(){
 		<input type="password" id="tpwd" name="pwd" required></input><br>
 		<button>Löschen!</button>
 		</form>
+		Alle stornierbaren Buchungen werden mit dieser Aktion auch storniert!<br>
+		Vorherige Buchungen werden gespeichert, in einer anonymisierten Form.<br>
 		<button onclick=\"document.getElementById('deletionForm').innerHTML = '';\">Abbrechen!</button>`;
 }
 
