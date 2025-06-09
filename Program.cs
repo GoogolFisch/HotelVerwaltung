@@ -562,6 +562,9 @@ END_TRY_BOOK:
 		}
 		document += "</div>" +
 		"</form>";
+		document += $"Das Buchen ist nur {CancelationTime} Tage vor dem eigentlichem Tag möglich<br>" +
+			$"Das Stornieren ist auch nur bis zu {CancelationTime} Tage vorher möglich, <br>" +
+			"Stornieren können Sie auf Ihrer <a href=\"/login\">Account</a> Seite.";
 		document += Program.docEnd;
 		var bytes = Encoding.UTF8.GetBytes(document);
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);

@@ -44,7 +44,7 @@ function accountDeletionStart(){
 		<input type="password" id="tpwd" name="pwd" required></input><br>
 		<button>Löschen!</button>
 		</form>
-		<button onclick=\"accountCancelEdit()\">Abbrechen!</button>`;
+		<button onclick=\"document.getElementById('deletionForm').innerHTML = '';\">Abbrechen!</button>`;
 }
 
 function accountCancelEdit(){

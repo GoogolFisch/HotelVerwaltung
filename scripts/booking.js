@@ -31,7 +31,7 @@ function getISODate(time){
 function total_update(){
 	let timeStart = document.getElementById("from");
 	let timeEnd = document.getElementById("till");
-	timeStart.min = getISODate(Date.now() + ONE_DAY);
+	//timeStart.min = getISODate(Date.now() + ONE_DAY);
 	timeEnd.min = getISODate(Date.parse(timeStart.value) + ONE_DAY);
 	let dayCount = days_between(timeStart.value,timeEnd.value);
 	if(dayCount === undefined)
