@@ -319,11 +319,13 @@ public class Program{
 		}
 		MySqlCommand cmd = new MySqlCommand($"DELETE FROM Kunden WHERE Kunden_Id = {accId}",service.con);
 		cmd.ExecuteNonQuery();
-		DateTime cancelTime = DateTime.Now;
-		cancelTime.AddDays(CancelationTime);
 		// also remove Bookings that are in the future
-		cmd.CommandText = $"DELETE FROM Buchung WHERE Kunden_Id = {accId} AND BuchungStart < {cancelTime.ToString(Servicer.yyyymmdd)}";
-
+		cmd.CommandText = $"DELETE FROM Buchungen WHERE Kunden_Id = {accId} AND BuchungStart > {DateTime.Now.AddDays(CancelationTime).ToString(Servicer.yyyymmdd)}";
+		cmd.ExecuteNonQuery();
+		document += "Ihr account wurde gelöscht!";
+		document +=	"<script>setTimeout("+
+			"\"window.location.href='/'\",1000);</script>";
+		cmd.Dispose();
 	}
 	private static async Task HandelHttpAccount(HttpListenerContext context,CancellationToken cancellationToken){
 		try{
@@ -353,6 +355,10 @@ public class Program{
 			}else if(splittings[3].StartsWith("delete-account")){
 				//int.TryParse(splittings[3].Substring(7),out int bookingNum);
 				HandelAccountDeletion(context,accId,ref document);
+				document += Program.docEnd;
+				var pre_bytes = Encoding.UTF8.GetBytes(document);
+				await context.Response.OutputStream.WriteAsync(pre_bytes, 0, pre_bytes.Length);
+				return;
 			}
 		}
 		MySqlCommand cmd;
@@ -508,9 +514,7 @@ DISPOSE_CMD_BOOK:
 			document += "\nIn vergangenen Tagen kann man nicht buchen";
 			goto END_TRY_BOOK;
 		}
-		DateTime minTime = DateTime.Now;
-		minTime.AddDays(CancelationTime);
-		if(ending < minTime){ // add a min time!
+		if(ending < DateTime.Now.AddDays(CancelationTime)){ // add a min time!
 			document += "\nNach der Stornierfrist kann nicht mehr gebucht werden.";
 			goto END_TRY_BOOK;
 		}
@@ -537,17 +541,15 @@ END_TRY_BOOK:
 		}
 		document += "</ul>";
 		// adding booking stuff
-		DateTime tomorrow = DateTime.Now; // auto limit the input
-		tomorrow.AddDays(CancelationTime);
+		DateTime tomorrow = DateTime.Now.AddDays(CancelationTime); // auto limit the input
 		document +=
 		"<form method=\"post\" role=\"form\" action=\"/book\">" +
 			"<label for=\"from\">Datum von:</label>" +
 			$"<input type=\"date\" id=\"from\" name=\"from\" onchange=\"total_update()\" min=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" value=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" required></input><br>";
 		// limit the till part
-		tomorrow.AddDays(1d);
 		document +=
 			"<label for=\"till\">Datum bis:</label>" +
-			$"<input type=\"date\" id=\"till\" name=\"till\" onchange=\"total_update()\" min=\"{tomorrow.ToString(Servicer.yyyymmdd)}\" required></input><br>" +
+			$"<input type=\"date\" id=\"till\" name=\"till\" onchange=\"total_update()\" min=\"{tomorrow.AddDays(1).ToString(Servicer.yyyymmdd)}\" required></input><br>" +
 			"<label for=\"mail\">E-Mail:</label>" +
 			"<input type=\"email\" id=\"mail\" name=\"mail\" required></input><br>" +
 			"<label for=\"pwd\">Passwort:</label>" +
