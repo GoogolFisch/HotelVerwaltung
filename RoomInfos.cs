@@ -8,6 +8,7 @@ public struct RoomInfos{
 		this.cost = cost;
 		this.picturePath = $"./images/{typ}.jpeg";
 	}
+	// make it easier to insert rooms in the "form"
 	public string ToHtml(){
 		return $"<li class=\"rooms rooms-{typeName}\" onclick=\"room_focus('{typeName}')\">" + 
 			"<div class=\"flex-row\">" +

@@ -38,9 +38,12 @@ public class Program{
 		{
 			string name = descriptor.Name;
 			object? value = descriptor.GetValue(obj);
+			// append the values
 			if(value is null)
+				// if null do this
 				concar += $"{name}\t=\t<null>\n";
 			else
+				// else use the ToString()
 				concar += $"{name}\t=\t{value}\n";
 		}
 		concar += "---------------\n";
@@ -50,15 +53,12 @@ public class Program{
 		foreach (var method in type.GetMethods())
 		{
 			var parameters = method.GetParameters();
+			// this can look easy
 			var parameterDescriptions = string.Join
 			(", ", method.GetParameters()
 			.Select(x => x.ParameterType + " " + x.Name)
 			.ToArray());
-
-			//Console.WriteLine("{0} {1} ({2})",
-			//method.ReturnType,
-			//method.Name,
-			//parameterDescriptions);
+			// append values of the functions
 			concar += $"{method.ReturnType}\t{method.Name}\t{parameterDescriptions}\n";
 		}
 		return concar;
@@ -69,11 +69,12 @@ public class Program{
 
 		Console.WriteLine(service.webServerUrl);
 
-		service.EnsureTableFormat("Kunden","CREATE TABLE `Kunden` ( `Kunden_ID` int(11) NOT NULL AUTO_INCREMENT, `VorName` varchar(20) NOT NULL, `NachName` varchar(20) NOT NULL, `eMail` varchar(40) NOT NULL, `ErstellungsDatum` datetime NOT NULL, `GeborenAm` date NOT NULL, `password` char(64) NOT NULL, PRIMARY KEY (`Kunden_ID`))");
-		service.EnsureTableFormat("Raum","CREATE TABLE `Raum` ( `Raum_ID` int(11) NOT NULL AUTO_INCREMENT, `Kosten` decimal(6,2) NOT NULL, `anzBetten` int(2) NOT NULL, `RaumTyp` varchar(2) NOT NULL, `ZimmerNum` int(11) NOT NULL, PRIMARY KEY (`Raum_ID`))");
+		// ensure table formats
+		service.EnsureTableFormat("Kunden","CREATE TABLE `Kunden` ( `Kunden_ID` int(11) NOT NULL AUTO_INCREMENT, `VorName` varchar(20) NOT NULL, `NachName` varchar(20) NOT NULL, `eMail` varchar(40) NOT NULL, `ErstellungsDatum` datetime NOT NULL, `GeborenAm` date NOT NULL, `password` char(64) NOT NULL, PRIMARY KEY (`Kunden_ID`), UNIQUE KEY `eMail` (`eMail`))");
+		service.EnsureTableFormat("Raum","CREATE TABLE `Raum` ( `Raum_ID` int(11) NOT NULL AUTO_INCREMENT, `Kosten` decimal(6,2) NOT NULL, `anzBetten` int(2) NOT NULL, `RaumTyp` varchar(2) NOT NULL, `ZimmerNum` int(11) NOT NULL, PRIMARY KEY (`Raum_ID`), CONSTRAINT `CONSTRAINT_1` CHECK (`Kosten` >= 50))");
 		service.EnsureTableFormat("Buchungen","CREATE TABLE `Buchungen` ( `Buchungs_ID` int(11) NOT NULL AUTO_INCREMENT, `Kunden_ID` int(11) NOT NULL, `BuchungsDatum` datetime NOT NULL, `BuchungStart` date NOT NULL, `BuchungEnde` date NOT NULL, PRIMARY KEY (`Buchungs_ID`))");
-		service.EnsureTableFormat("ZimmerBuchung","CREATE TABLE `ZimmerBuchung` ( `Buchungs_ID` int(11) NOT NULL, `Raum_ID` int(11) NOT NULL, PRIMARY KEY (`Buchungs_ID`,`Raum_ID`))");
-		service.EnsureTableFormat("Bewertung","CREATE TABLE `Bewertung` ( `Kunden_ID` int(11) NOT NULL, `Sterne` int(1) NOT NULL, `Nachricht` text NOT NULL, PRIMARY KEY (`Kunden_ID`))");
+		service.EnsureTableFormat("ZimmerBuchung","CREATE TABLE `ZimmerBuchung` ( `Buchungs_ID` int(11) NOT NULL, `Raum_ID` int(11) NOT NULL, PRIMARY KEY (`Buchungs_ID`,`Raum_ID`), KEY `ReferenzAufRaum` (`Raum_ID`), CONSTRAINT `BuchungsDependence` FOREIGN KEY (`Buchungs_ID`) REFERENCES `Buchungen` (`Buchungs_ID`) ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT `ReferenzAufRaum` FOREIGN KEY (`Raum_ID`) REFERENCES `Raum` (`Raum_ID`) ON DELETE NO ACTION ON UPDATE NO ACTION)");
+		service.EnsureTableFormat("Bewertung","CREATE TABLE `Bewertung` ( `Kunden_ID` int(11) NOT NULL, `Sterne` int(1) NOT NULL, `Nachricht` text NOT NULL, PRIMARY KEY (`Kunden_ID`), CONSTRAINT `DeleteOnKundenDelete` FOREIGN KEY (`Kunden_ID`) REFERENCES `Kunden` (`Kunden_ID`) ON DELETE CASCADE ON UPDATE NO ACTION)");
 		// register everything!
 		// register funny logical stuff
 		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),HandelHttpPrint);
@@ -87,12 +88,13 @@ public class Program{
 		service.server.HandlesPath("/try-food", async (context, cancellationToken) => { HandelHttpStatus(context, cancellationToken); });
 		// from service.server.HandlesStaticFile("/book", "web-files/book.html");
 		service.server.HandlesPath("/book", HandelHttpBook);
+		// load other data
 		service.server.Handles(
 				path => (path.StartsWith("/images/") ||
 					 path.StartsWith("/scripts/")) &&
 					(!path.Contains("..")),
 		async (context, cancellationToken) => {
-			//Console.WriteLine(context.Request.RawUrl);
+			// stolen from LightHTTP
 			using var fileStream = new FileStream(
 				$".{context.Request.RawUrl}", FileMode.Open
 			);
@@ -124,9 +126,16 @@ public class Program{
 			Console.WriteLine("Received SIGINT (Ctrl+C)");
 			keepAlive = false;
 		};
+		// this should overflow!
+		short sleeperIter = 0;
 		//
 		while(keepAlive){
 			Thread.Sleep(100);
+			sleeperIter++;
+			if(sleeperIter == 0){
+				// update wich rooms exits, by now and then
+				service.ReadAllRoomTypes();
+			}
 		}
 		// stopping
 		service.Stop();
@@ -136,12 +145,16 @@ public class Program{
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/plain";
 		context.Request.GetClientCertificate(); // this has to be done!
+		// get Request data
 		string document = ConcatAllTypes(context.Request);
 		document += "===========\n";
+		// get Response stuff?
 		document += ConcatAllTypes(context.Response);
 		document += "===========\n";
+		// get Cookies, we don't use them
 		document += ConcatAllTypes(context.Request.Cookies);
 		document += "??\n";
+		// list cookies
 		foreach(var cookie in context.Request.Cookies){
 			document += $"{cookie}\n";
 		}
@@ -176,27 +189,31 @@ public class Program{
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
 		string document = Program.docStart;
+		// if pushed the form, then
 		if(context.Request.HttpMethod == "POST"){
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
 			int retVal = service.TryRegisterUser(hidParam);
 			if(retVal == 0){
-				document += "registering successfull for:<br>";
+				// show if successful
+				document += "Erfolgreich erstellung von:<br>";
 				document += $"{hidParam["fname"]} ";
 				document += $"{hidParam["lname"]}";
 				document +=	"<script>setTimeout("+
 				        "\"window.location.href='/'\",1000);</script>";
 			} else if(retVal == 1){
-				document += "some one already hash such an account";
+				// show 
+				document += "Jemandem hat schon diese E-Mail registiert.";
 				document +=	"<script>setTimeout("+
 				        "\"window.location.href='/register'\",1000"+
 					");</script>";
 			}else if(retVal == 2){
-				document += "Not correct format!";
+				document += "Falsches Format!";
 				document +=	"<script>setTimeout("+
 				        "\"window.location.href='/register'\",1000"+
 					");</script>";
 			}
 		}else{
+			// get request, send the form
 			document += 
 "<form action=\"/register\" method=\"post\" role=\"form\">" +
 "	<label for=\"fname\">Erstname:</label>" +
@@ -213,6 +230,7 @@ public class Program{
 "</form>" +
 "<a href=\"login\">Login</a>";
 		}
+		// sende die HTML seite
 		document += Program.docEnd;
 		context.Response.ContentType = "text/html";
 		byte[] bytes = Encoding.UTF8.GetBytes(document);
@@ -222,23 +240,27 @@ public class Program{
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
 		string document = Program.docStart;
-		try{
+		//try{
 		if(context.Request.HttpMethod == "POST"){
+			// test the given password
 			var hidParam = Servicer.GetHiddenParameters(context.Request);
 			bool retVal = service.TryLogin(hidParam);
 			if(retVal){
 				document += "Erfolgreich!";
 				string tokString = service.GetTokenFor(hidParam["mail"]);
+				// also give them the token
 				context.Response.RedirectLocation = $"/account/{tokString}";
 				document += $"<script>setTimeout(\"window.location.href='/account/{tokString}'\",100);</script>";
 			}
 			else{
+				// wrong do it agian
 				document += "Falsche Login details.";
 				document +=	"<script>setTimeout("+
 				        "\"window.location.href='/login'\",1000"+
 					");</script>";
 			}
 		}else{
+			// on get request, send the form
 			document += 
 "<form action=\"/login\" method=\"post\" role=\"form\">" +
 "	<label for=\"e-mail\">E-Mail:</label>" +
@@ -250,11 +272,11 @@ public class Program{
 "<a href=\"register\">registreire ein Account</a>";
 
 		}
+		// send the HTML
 		document += docEnd;
 		var bytes = Encoding.UTF8.GetBytes(document);
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
-
-		}catch(Exception e){Console.WriteLine(e.ToString());}
+		//}catch(Exception e){Console.WriteLine(e.ToString());}
 	}
 	private static void HandelPostAccount(ref string document,HttpListenerContext context,int accId){
 		var hidParam = Servicer.GetHiddenParameters(context.Request);
@@ -267,13 +289,14 @@ public class Program{
 		}
 		string fName = hidParam["fname"];
 		string lName = hidParam["lname"];
+		// stoping the db of beeing angry
 		if(fName.Length > 19 || lName.Length > 19){
 			document += "Ihr Name ist viel zu lang!";
 			return;
 		}
 		string eMail = hidParam["mail"];
 		string birth = hidParam["birth"];
-		// check if both are correct
+		// check if both are correct / the same
 		string newpwd = Servicer.EncodePassword(hidParam["npwd"]);
 		string n2pwd = Servicer.EncodePassword(hidParam["n2pwd"]);
 		if(newpwd != n2pwd){
@@ -303,6 +326,7 @@ public class Program{
 		pref.Dispose();
 		pref.Close();
 		if(shouldDelete){
+			// delete the stuff
 			cmd.CommandText = $"DELETE FROM Buchungen WHERE Kunden_ID = {accId} AND Buchungs_ID = {bookingId};";
 			cmd.ExecuteNonQuery();
 			cmd.CommandText = $"DELETE FROM ZimmerBuchung WHERE Buchungs_ID = {bookingId};";
@@ -311,12 +335,15 @@ public class Program{
 		cmd.Dispose();
 	}
 	private static void HandelAccountDeletion(HttpListenerContext context, int accId,ref string document){
+		// test if the user really wants to do it
 		Dictionary<string,string> hidParam = Servicer.GetHiddenParameters(context.Request);
 		bool retVal = service.TryLogin(hidParam);
 		if(!retVal){
 			document += "Falsche EMail oder Passwort!<br>Nichts wird gelöscht!";
+			// escape the deletion
 			return;
 		}
+		// delete
 		MySqlCommand cmd = new MySqlCommand($"DELETE FROM Kunden WHERE Kunden_Id = {accId}",service.con);
 		cmd.ExecuteNonQuery();
 		// also remove Bookings that are in the future
@@ -340,6 +367,7 @@ public class Program{
 		string tok = splittings[2];
 		string document = Program.docStart;
 		int accId;
+		// bail out if wrong token
 		bool correctToken = service.CheckToken(tok,out accId);
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
@@ -350,11 +378,14 @@ public class Program{
 		// cancel
 		if(splittings.Length > 3){
 			if(splittings[3].StartsWith("storno-")){
+				// get booking id
 				int.TryParse(splittings[3].Substring(7),out int bookingNum);
+				// cancel it if posible
 				HandelAccountCancelBooking(context,accId,ref document,bookingNum);
 			}else if(splittings[3].StartsWith("delete-account")){
-				//int.TryParse(splittings[3].Substring(7),out int bookingNum);
+				// try delete account
 				HandelAccountDeletion(context,accId,ref document);
+				// then bail out?
 				document += Program.docEnd;
 				var pre_bytes = Encoding.UTF8.GetBytes(document);
 				await context.Response.OutputStream.WriteAsync(pre_bytes, 0, pre_bytes.Length);
@@ -387,6 +418,7 @@ public class Program{
 		cmd.CommandText = $"SELECT Sterne,Nachricht FROM Bewertung WHERE Kunden_ID = {accId}";
 		pref = cmd.ExecuteReader();
 		if(pref.Read()){
+			// show your rating
 			document += "Sie haben eine Bewertung hinterlegt.<br>";
 			document += $"Bewertung: {pref.GetInt32(0)} Sterne <br> {Servicer.DecodeEscaped(pref.GetString(1))}";
 		}
@@ -408,6 +440,7 @@ public class Program{
 			addLaterData = "<ul>";
 			// insert the rooms
 			while(pref.Read()){
+				// get costs from each room
 				kosten += (decimal)pref.GetFloat(0) * daySpan;
 				addLaterData += $"<li>Raum-{pref.GetString(2)}: " +
 					$"{pref.GetInt32(3)} " +
@@ -421,7 +454,7 @@ public class Program{
 			$"{bkinf.bookingStart.ToString(Servicer.ddmmyyyy)} - {bkinf.bookingEnd.ToString(Servicer.ddmmyyyy)}" +
 			$" | ${kosten}" +
 			$"{addLaterData}";
-			// test stuff
+			// last cancel time test
 			if(bkinf.bookingStart > DateTime.Now)
 				document += $"<button onclick=\"cancelBooking({bkinf.bookingId});\">Stornieren</button>";
 			else
@@ -432,6 +465,7 @@ public class Program{
 			pref.Dispose();
 			//document += $"";
 		}
+		// send the HTML
 		cmd.Dispose();
 		document += Program.docEnd;
 		var bytes = Encoding.UTF8.GetBytes(document);
@@ -444,25 +478,29 @@ public class Program{
 		bool canDoIt = true;
 		MySqlCommand cmd = new MySqlCommand("",service.con);
 		MySqlDataReader pref;
+		// test if enougth rooms are avalible
 		foreach(RoomInfos rmInf in service.roomTypes){
 			if(hidParam[$"snd-{rmInf.typeName}"] == "")
 				hidParam[$"snd-{rmInf.typeName}"] = "0";
 			int wantingCnt = Convert.ToInt32(
 					hidParam[$"snd-{rmInf.typeName}"]
 					);
+			// XXX, currently from Raum
 			cmd.CommandText = $"SELECT COUNT(*) FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.Buchungs_ID WHERE b.BuchungStart > \"{starting.ToString(Servicer.yyyymmdd)}\" AND b.BuchungEnde < \"{ending.ToString(Servicer.yyyymmdd)}\") AND RaumTyp =\"{rmInf.typeName}\" ";
 			pref = cmd.ExecuteReader();
 			pref.Read();
 			int count = pref.GetInt32(0);
-			//Console.WriteLine($"{count} / {wantingCnt}");
+			// anding everything
 			canDoIt &= (count >= wantingCnt);
 			pref.Dispose();
 			pref.Close();
 		}
 		if(!canDoIt){
+			// bail out
 			document += "Sie haben mehr Räume gebucht, als möglich sind!";
 			goto DISPOSE_CMD_BOOK;
 		}
+		// add an booking base
 		string sanMail = hidParam["mail"];
 		cmd.CommandText = $"INSERT INTO Buchungen(Kunden_ID,BuchungsDatum,BuchungStart,BuchungEnde) VALUES((SELECT Kunden_ID FROM Kunden WHERE Kunden.eMail = \"{sanMail}\"),\"{DateTime.Now.ToString($"{Servicer.yyyymmdd} {Servicer.hhmmss}")}\"," + 
 		$"\"{starting.ToString(Servicer.yyyymmdd)}\",\"{ending.ToString(Servicer.yyyymmdd)}\")";
@@ -473,6 +511,7 @@ public class Program{
 		int buchungsId = pref.GetInt32(0);
 		pref.Dispose();
 		pref.Close();
+		// add each room to booking
 		foreach(RoomInfos rmInf in service.roomTypes){
 			cmd.CommandText = $"SELECT Raum_ID FROM Raum Where Raum_ID NOT IN (SELECT Raum_ID FROM ZimmerBuchung zb JOIN Buchungen b ON zb.Buchungs_ID = b.Buchungs_ID WHERE b.BuchungStart > \"{starting.ToString(Servicer.yyyymmdd)}\" AND b.BuchungEnde < \"{ending.ToString(Servicer.yyyymmdd)}\") AND RaumTyp =\"{rmInf.typeName}\" ";
 			pref = cmd.ExecuteReader();
@@ -481,7 +520,7 @@ public class Program{
 				roomIds.Add(pref.GetInt32(0));
 			pref.Dispose();
 			pref.Close();
-			//
+			// book each room into an booking
 			int counting = Convert.ToInt32(hidParam[$"snd-{rmInf.typeName}"]);
 			for(int i = 0;i < counting;i++){
 				cmd.CommandText = $"INSERT INTO ZimmerBuchung(Buchungs_ID,Raum_ID) Values ({buchungsId},{roomIds[i]})";
@@ -505,7 +544,7 @@ DISPOSE_CMD_BOOK:
 		// date checking
 		DateTime starting = DateTime.Parse(hidParam["from"],CultureInfo.InvariantCulture);
 		DateTime ending = DateTime.Parse(hidParam["till"],CultureInfo.InvariantCulture);
-		//Console.WriteLine($"{starting} - {ending}");
+		// no out of order booking
 		if(starting > ending){
 			document += "\nNegativer Buchungszeitraum";
 			goto END_TRY_BOOK;
@@ -520,7 +559,7 @@ DISPOSE_CMD_BOOK:
 		}
 		// taken the happy path
 		document += "Ihre Buchung war erfolgreich!";
-		//
+		// do the booking
 		HandelPostBookQuerying(ref document,hidParam,starting,ending);
 END_TRY_BOOK:
 		// finishing touches
@@ -530,6 +569,7 @@ END_TRY_BOOK:
 		}catch(Exception e){Console.WriteLine(e.ToString());}
 	}
 	private static async Task HandelGetBook(HttpListenerContext context,CancellationToken cancellationToken){
+		// send the booking HTML with the form
 		string document = Program.docStart +
 		"<script src=\"/scripts/booking.js\"></script>" +
 		"	<h1>Zimmer buchen</h1>";
@@ -557,6 +597,7 @@ END_TRY_BOOK:
 			"<div class=\"flex-down\">" +
 			"<div id=\"costing\">Kostet: $0</div>" +
 			"<button>Buchen!</button>";
+		// pre safed room loop
 		foreach(RoomInfos roomTyp in service.roomTypes){
 			document += "<input type=\"hidden\""+
 				$"name=\"snd-{roomTyp.typeName}\"" +
@@ -564,6 +605,7 @@ END_TRY_BOOK:
 		}
 		document += "</div>" +
 		"</form>";
+		// cancelation notice
 		document += $"Das Buchen ist nur {CancelationTime} Tage vor dem eigentlichem Tag möglich<br>" +
 			$"Das Stornieren ist auch nur bis zu {CancelationTime} Tage vorher möglich, <br>" +
 			"Stornieren können Sie auf Ihrer <a href=\"/login\">Account</a> Seite.";
@@ -572,6 +614,7 @@ END_TRY_BOOK:
 		await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
 	}
 	private static async Task HandelHttpBook(HttpListenerContext context,CancellationToken cancellationToken){
+		// this just handels stuff
 		context.Response.ContentEncoding = Encoding.UTF8;
 		context.Response.ContentType = "text/html";
 		if(context.Request.HttpMethod == "POST"){
@@ -599,10 +642,12 @@ END_TRY_BOOK:
 			document += $"Leider ist {rateString} Keine Zahl...";
 			return true;
 		}
-		if(rateing < 0 || rateing > 5){
+		// check if in rating range
+		if(rateing < 1 || rateing > 5){
 			document += $"Eine Zahl zwischen 1 und 5 (inklusive) erwartet.";
 			return false;
 		}
+		// insert rating
 		MySqlCommand cmd = new MySqlCommand($"REPLACE INTO Bewertung(Kunden_ID,Sterne,Nachricht) VALUES ((SELECT Kunden_ID FROM Kunden WHERE eMail = \"{eMail}\"),\"{rateing}\",\"{comment}\")",service.con);
 		try{
 			cmd.ExecuteNonQuery();
@@ -620,6 +665,7 @@ END_TRY_BOOK:
 		cmd.CommandText = "SELECT AVG(Sterne) FROM Bewertung";
 		MySqlDataReader rdr = cmd.ExecuteReader();
 		if(rdr.Read()){
+			// if contains any rating
 			if(!rdr.IsDBNull(0)){
 				//document += $"Noch niemand hat hier eine Bewertung abgegeben. ";
 				document += $"Unsere Kunden Zufiredenheit liegt bei {rdr.GetFloat(0):f1} Sternen. ";
@@ -627,7 +673,7 @@ END_TRY_BOOK:
 		}
 		rdr.Dispose();
 		rdr.Close();
-		//
+		// also add links
 		document += "<h2>Hier finden Sie beste Zimmer</h2>" +
 			"<a href=\"/book\">Buchen</a> Sie jetzt bei uns, und finden Sie unsere schönsten Räume.<br> Unsere Räume sind riesig und preis wert.<br><a href=\"/book\">Buchen Sie bei uns!</a>";
 		document += "<h2>Hier finden Sie bestes Essen</h2>" +
@@ -637,6 +683,7 @@ END_TRY_BOOK:
 		bool isPost = context.Request.HttpMethod == "POST";
 		bool handel = false;
 		if(isPost)handel = HandelPostIndex(context,ref document);
+		// insert rating form, if didn't rate recently
 		if(!isPost || handel)
 			document +=
 "Bewerten Sie auch!"+
@@ -654,6 +701,7 @@ END_TRY_BOOK:
 		cmd.CommandText = "SELECT CONCAT(k.VorName,' ',k.NachName),b.Sterne,b.Nachricht FROM Bewertung b JOIN Kunden k ON k.Kunden_ID = b.Kunden_ID ORDER BY rand() LIMIT 5";
 		document += "Hier sind weitere Bewertungen:<br>";
 		rdr = cmd.ExecuteReader();
+		// insert 5 Ratings here
 		while(rdr.Read()){
 			string msg = rdr.GetString(2);
 			msg = Servicer.DecodeEscaped(msg);
