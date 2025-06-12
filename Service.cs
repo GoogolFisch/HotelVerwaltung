@@ -14,15 +14,15 @@ using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 
 public class Servicer{
-
+	// random token string data
 	public static readonly string tokenRandomData = "stringRandomData" + Random.Shared.Next(1,10000);
+	// mysql connection string
 	public const string sqlServerString = @"server=localhost;userid=hotelServer;password=1234;database=hotelServer";
+	// date formats
 	public const string yyyymmdd = "yyyy-MM-dd";
 	public const string ddmmyyyy = "dd.MM.yyyy";
 	public const string hhmmss = "HH:mm:ss";
 	public LightHttpServer server;// = new LightHttpServer(); // https://github.com/javidsho/LightHTTP.git
-	//public bool shouldKillAll;// = false;
-	//public DateTime serverStartTime;// = DateTime.Now;
 	public MySqlConnection con;
 	public string webServerUrl {private set; get;}
 	public List<string> existingTables;
@@ -30,6 +30,7 @@ public class Servicer{
 	public bool CheckTableExists(string tableName){
 		return existingTables.Contains(tableName.ToLower());
 	}
+	// just checks the table format to exactly match the given one
 	public bool EnsureTableFormat(string tableName,string formatStr)
 	{
 		MySqlCommand cmd;
@@ -37,19 +38,9 @@ public class Servicer{
 		//string sql = $"DESCRIBE {tableName}";
 		string sql = $"SHOW CREATE TABLE {tableName}";
 		if(!CheckTableExists(tableName)){
+			// auto create table
 			Console.WriteLine("No Table - Creating one!");
-			/*
-			List<string> param = new List<string>(formatStr.Split("|"));
-			param[0] += " PRIMARY KEY AUTO_INCREMENT";
-			param.RemoveAt(param.Count - 1);
-			for(int i = 1;i < param.Count;i++){
-				param[i] += " NOT NULL";
-				if(param[i].Contains("Datum")){
-					param[i] += " DEFAULT CURRENT_TIMESTAMP";
-				}
-			}
-			sql = $"CREATE TABLE {tableName}({String.Join(',',param)});";
-			*/
+			// the string is already the create table statement
 			sql = $"{formatStr}";
 			Console.WriteLine(sql);
 			cmd = new MySqlCommand(sql,con);
@@ -61,119 +52,50 @@ public class Servicer{
 
 		MySqlDataReader rdr = cmd.ExecuteReader();
 		string tabLayout = "";
-		/*bool isFirst = true;
-		List<string> primaryList = new List<string>();
-		while (rdr.Read())
-		{
-			if(!isFirst)
-				tabLayout += ",";
-			else{
-				//Console.WriteLine(Program.ConcatAllTypes(rdr));
-				//Console.WriteLine(rdr.FieldCount);
-				isFirst = false;
-			}
-			tabLayout += $"{rdr.GetString(0)} {rdr.GetString(1)}";
-			//tabLayout += $" {rdr.GetString(4)} {rdr.GetString(5)}";
-			if(rdr.GetString(3) == "PRI")
-				primaryList.Add(rdr.GetString(0));
-			else{
-				if(rdr.GetString(3) != "")
-					tabLayout += $" {rdr.GetString(3)}";
-				if(rdr.GetString(2) == "NO")
-					tabLayout += " NOT NULL";
-			}
-			for(int i = 5; i < rdr.FieldCount;i++)
-				tabLayout += $" {rdr.GetString(i)}";
-		}
-		// populate primary keys
-		if(primaryList.Count > 0){
-			tabLayout += ",PRIMARY KEY (";
-			isFirst = true;
-			foreach(string keys in primaryList){
-				if(!isFirst)tabLayout += ",";
-				tabLayout += $"{keys}";
-				isFirst = false;
-			}
-			tabLayout += ")";
-		}*/
 		if(rdr.Read())
 			tabLayout = rdr.GetString(1);
+		// "normalise the input"
 		tabLayout = tabLayout.Replace("\n","");
 		tabLayout = tabLayout.Replace("  "," ");
+		// remove misc info, which will ruin us
 		tabLayout = tabLayout.Substring(0,1 + tabLayout.LastIndexOf(")"));
 		//Console.WriteLine(tabLayout);
 		rdr.Dispose();
 		cmd.Dispose();
 
 		
+		// checking if they match
 		if(formatStr.Trim().ToLower() == tabLayout.Trim().ToLower())
 			return true;
+		// dump diffrence to the programmer
 		Console.WriteLine($"The expected format: {tableName}");
 		Console.WriteLine(formatStr);
 		Console.WriteLine("But got");
 		Console.WriteLine(tabLayout);
 
-
+		// didn't match
 		return false;
 	}
-	public static string GetTableData(System.Data.DataTable table)
-	{
-		string outing = "";
-		foreach (System.Data.DataColumn col in table.Columns)
-		{
-			outing += $"{col.ColumnName}\t";
-		}
-		outing += "\n";
-		foreach (System.Data.DataRow row in table.Rows)
-		{
-			foreach (System.Data.DataColumn col in table.Columns)
-			{
-				outing += $"{row[col]}\t";
-			}
-			outing += "<br>\n";
-		}
-		return outing;
-	}
+
 	// remove all potentially dangerous characters from an string!
 	public static string Sanitise(string inStr){
-		/*
-		string outStr = inStr;
-		foreach(char nogoChar in "/'.\"\\$"){
-			outStr = outStr.Replace("" + nogoChar,"");
-		}*/
 		string outStr = "";
 		foreach(char inChar in inStr){
+			// keep spaces
 			if(inChar == ' ')
 				outStr += inChar;
-			/*
-			else if(strict > 0){
-				// maybe add " -> %22 ...
-				if(inChar == '!')
-					outStr += inChar;
-				else if(inChar >= '#' && inChar <= '&')
-					outStr += inChar;
-				else if(inChar >= '(' && inChar <= '_')
-					outStr += inChar;
-				else if(inChar >= 'a' && inChar <= '~')
-					outStr += inChar;
-				// idk what can happen here!
-			}
-			else if(inChar >= '0' && inChar <= '9')
-				outStr += inChar;
-			else if(inChar >= '@' && inChar <= 'Z')
-				outStr += inChar;
-			else if(inChar >= 'a' && inChar <= 'z')
-				outStr += inChar;
-				*/
+			// prevent XSS
 			else if(inChar == '<')
 				outStr += "&lt;";
 			else if(inChar == '>')
 				outStr += "&gt;";
 			else if(inChar == '&')
 				outStr += "&amp;";
+			// keep every character above the ' or the "
 			else if(inChar >= '(')// && inChar <= '~')
 				outStr += inChar;
 			else{
+				// escape the character with the byte encoding
 				byte[] charCode = Encoding.UTF8.GetBytes(new char[]{inChar});
 				foreach(byte chh in charCode)
 					// each char in hex
@@ -182,18 +104,23 @@ public class Servicer{
 		}
 		return outStr.Trim();
 	}
+	// decode into readable text, keep < > & sanitised
 	public static string DecodeEscaped(string hexString){
 		byte[] asBytes = new byte[4];
 		int byteIndex = 0;
 		string strOut = "";
 		for(int stringIndex = 0;stringIndex < hexString.Length;stringIndex++){
+			// everything above ' or " is safe
 			if(hexString[stringIndex] >= '(')
 				strOut += hexString[stringIndex];
+			// space is save
 			else if(hexString[stringIndex] == ' ')
 				strOut += hexString[stringIndex];
+			// also keep &, for the XSS prevention (and displaying)
 			else if(hexString[stringIndex] == '&')
 				strOut += hexString[stringIndex];
 			else{
+				// me trying to decode the escaped chars
 				while(hexString[stringIndex] == '%'){
 					stringIndex++;
 					// upper half
@@ -202,6 +129,7 @@ public class Servicer{
 						part += 10 - 'A' + '0';
 					}
 					part <<= 4;
+					// save into the byte array
 					asBytes[byteIndex / 2] = (byte)part;
 					stringIndex++;
 					// lower half
@@ -209,81 +137,93 @@ public class Servicer{
 					if(part > 10){
 						part += 10 - 'A' + '0';
 					}
-					//part <<= 4;
+					// save into the byte array
 					asBytes[byteIndex >> 1] |= (byte)part;
 				}
 				// encode to outString
 				strOut += System.Text.Encoding.UTF8.GetString(asBytes, 0, byteIndex >> 1);
 			}
-		}
+		} // foreach loop
+		// output string
 		return strOut;
 	}
 	
         public static int GetOpenPort()
         {
-            var listener = new TcpListener(IPAddress.Loopback, 0);
-            try
-            {
-                listener.Start();
-                return (listener.LocalEndpoint as IPEndPoint)!.Port;
-            }
-            finally
-            {
-                listener.Stop();
-            }
+		// stolen from LichtHTTP
+		var listener = new TcpListener(IPAddress.Loopback, 0);
+		try
+		{
+			listener.Start();
+			return (listener.LocalEndpoint as IPEndPoint)!.Port;
+		}
+		finally
+		{
+			listener.Stop();
+		}
         }
+	// print all ip addresses
 	public static void GetAllIpStrings(int port)
 	{
+		// stolen from LichtHTTP?
 		var host = Dns.GetHostEntry(Dns.GetHostName());
 		//string hostName = "";
 		foreach (var ip in host.AddressList)
 		{
 			if (ip.AddressFamily == AddressFamily.InterNetwork){
-				//hostName = ip.ToString();
+				// print posible ip's with ports
 				Console.WriteLine($"http://{ip.ToString()}:{port}");
 			}
 		}
-		//throw new Exception("No network adapters with an IPv4 address in the system!");
 	}
+	// 
 	public Servicer(){
 		// MySql connection
 		con = new MySqlConnection(sqlServerString);
+		// catch if it is null
+		if(con is null)
+			throw new Exception("could not connect");
+		// test connectivity to the MySQL server
 		try{
 			con.Open();
 		}
 		catch (MySqlException e){
+			// if error is known
 			if(e. Message.Equals("Unable to connect to any of the specified MySQL hosts")){
 				Console.Error.WriteLine("You need to start mysql under XAMPP");
 			}
 			else
 				Console.Error.WriteLine(e.ToString());
+			// just exit because it shouldn't continue
 			Environment.Exit(1);
 		}
-		if(con is null)
-			throw new Exception("could not connect");
 		// initialise Web-Server
 		server = new LightHttpServer();
 		
 		// in future move to port 80 or 443
+		// or not, because of XAMPP
 		var port = Servicer.GetOpenPort();
 		var prefix = $"http://*:{port}/"; // connect to any ip
+		// print the ips
 		Servicer.GetAllIpStrings(port);
 		server.Listener.Prefixes.Add(prefix);
+		// save the ip, IDK
 		webServerUrl = prefix;
-		//webServerUrl = server.AddAvailableLocalPrefix();
 
 		// load "static" tables
 		ReadAllTalbes();
 		// ???
 		//serverStartTime = DateTime.Now;
 	}
-	private void ReadAllRoomTypes(){
+	// update / setup rooms
+	public void ReadAllRoomTypes(){
 		var cmd = new MySqlCommand();
 		cmd.Connection = con;
-		// this will change!
+		// IDK XXX
 		cmd.CommandText = "SELECT RaumTyp,AVG(Kosten) FROM Raum GROUP BY RaumTyp";
 		MySqlDataReader rdr = cmd.ExecuteReader();
 		roomTypes = new List<RoomInfos>();
+		// insert all rooms
 		while(rdr.Read()){
 			//roomTypes.Add(rdr.GetString(0));
 			roomTypes.Add(new RoomInfos(
@@ -301,13 +241,16 @@ public class Servicer{
 		cmd.CommandText = "SHOW TABLES";
 		MySqlDataReader rdr = cmd.ExecuteReader();
 		existingTables = new List<string>();
+		// get name of tables
 		while(rdr.Read()){
 			existingTables.Add(rdr.GetString(0).ToLower());
 		}
 		cmd.Dispose();
 		rdr.Dispose();
 	}
+	// read the form stream
 	public static String GetInputStream(HttpListenerRequest req){
+		// if has any
 		if(!req.HasEntityBody)
 			return "";
 		Stream body = req.InputStream;
@@ -319,6 +262,8 @@ public class Servicer{
 		body.Dispose();
 		return str;
 	}
+	// convert form string into dict
+	// thank you random Website...
 	public static Dictionary<String,String> GetHiddenParameters(HttpListenerRequest req){
 		Dictionary<String,String> lookup = new Dictionary<String,String>();
 		String data = GetInputStream(req);
@@ -336,10 +281,12 @@ public class Servicer{
 		return lookup;
     }
 
+	// start web-server
 	public void Start(){
 		// start the web-server
 
 		ReadAllRoomTypes();
+		// do windows only stuff
 		bool isWindows = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 		if (isWindows)
 			ShellHelper.RegisterHttp(webServerUrl);
@@ -351,6 +298,7 @@ public class Servicer{
 		// kill MySql
 		con.Close();
 	}
+	// encode passwords
 	public static string EncodePassword(string input){
 		SHA256 sha256 = SHA256.Create();
 		byte[] data = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
@@ -359,18 +307,20 @@ public class Servicer{
 		coded = coded.Replace('/','-');
 		return coded;
 	}
+	// if user exists, then don't
 	public int TryRegisterUser(Dictionary<string,string> lookup){
 		string fName = lookup["fname"];
 		string lName = lookup["lname"];
 		string eMail = lookup["mail"];
 		string birth = lookup["birth"];
 		string pwd = EncodePassword(lookup["pwd"]);
+		// if any null or "", stop
 		if(fName is null || fName == "") return 2;
 		if(lName is null || lName == "") return 2;
 		if(eMail is null || eMail == "") return 2;
 		if(birth is null || eMail == "") return 2;
 		if(pwd is null || eMail == "") return 2;
-		//string sql = $"SELECT * FROM Kunden WHERE VorName = \"{fName}\" AND NachName = \"{lName}\"";
+		// unique eMail
 		string sql = $"SELECT * FROM Kunden WHERE eMail = \"{eMail}\"";
 		MySqlCommand cmd = new MySqlCommand(sql,con);
 		MySqlDataReader pref = cmd.ExecuteReader();
@@ -379,7 +329,7 @@ public class Servicer{
 		// close this before!
 		pref.Dispose();
 		pref.Close(); 
-		// 
+		// user unique, then insert
 		if(!gotContent){
 			cmd.CommandText = "INSERT INTO Kunden" + 
 				"(VorName,NachName,ErstellungsDatum," +
@@ -397,11 +347,13 @@ public class Servicer{
 		cmd.Dispose();
 		return gotContent ? 1 : 0; // 0 -> succ | 1 -> fail
 	}
+	//
 	public bool TryLogin(Dictionary<string,string> lookup){
 		string eMail = lookup["mail"];
 		string pwd = EncodePassword(lookup["pwd"]);
 		if(eMail is null || eMail == "") return false;
 		if(pwd is null || eMail == "") return false;
+		// get Client with the unique eMail
 		string sql = $"SELECT password FROM Kunden WHERE eMail = \"{eMail}\"";
 		MySqlCommand cmd = new MySqlCommand(sql,con);
 		MySqlDataReader pref = cmd.ExecuteReader();
@@ -410,6 +362,7 @@ public class Servicer{
 		if(pref.HasRows){
 			pref.Read();
 			foundPwd = pref.GetString(0);
+			// check hashed passwords
 			if(foundPwd == pwd)
 				correct = true;
 		}
@@ -418,40 +371,56 @@ public class Servicer{
 		cmd.Dispose();
 		return correct;
 	}
+	// used for account stuff
 	public string GetTokenFor(string accountEMail){
+		// get client
 		MySqlCommand cmd = new MySqlCommand($"SELECT password,Kunden_ID FROM Kunden WHERE eMail = \"{accountEMail}\"",con);
 		MySqlDataReader pref = cmd.ExecuteReader();
 		pref.Read();
+		// create the token
 		string base64Hash = $"{pref.GetString(0)}-{accountEMail}-{DateTime.Now.ToString(Servicer.yyyymmdd)}-{tokenRandomData}";
 		int accountId = pref.GetInt32(1);
 		pref.Close();
 		pref.Dispose();
 		cmd.Dispose();
+		// reusing the password hasher, to get the real token
+		// hoping for no collisions
 		base64Hash = Servicer.EncodePassword(base64Hash);
+		// the token format
 		return $"{accountId}-{base64Hash}";
 	}
+	// same as before, only with the id
 	public string GetTokenFor(int accountId){
+		// get client
 		MySqlCommand cmd = new MySqlCommand($"SELECT password,eMail FROM Kunden WHERE Kunden_ID = {accountId}",con);
 		MySqlDataReader pref = cmd.ExecuteReader();
 		pref.Read();
+		// create the token
 		string base64Hash = $"{pref.GetString(0)}-{pref.GetString(1)}-{DateTime.Now.ToString(Servicer.yyyymmdd)}-{tokenRandomData}";
 		pref.Close();
 		pref.Dispose();
 		cmd.Dispose();
+		// reusing the password hasher, to get the real token
+		// hoping for no collisions
 		base64Hash = Servicer.EncodePassword(base64Hash);
+		// the token format
 		return $"{accountId}-{base64Hash}";
 	}
+	// regenerate the Token, check with given one
 	public bool CheckToken(string token,out int accountId){
+		// get account id
 		string accountStr = token.Split('-')[0];
 		if(!int.TryParse(accountStr,out accountId))
 			return false;
-		//
+		// regenerate
 		string refrence = GetTokenFor(accountId);
+		// and check
 		if(refrence != token)
 			return false;
 		// success!
 		return true;
 	}
+	// get all bookings, used in "/account"
 	public List<BookingInfo> GetBookingFromKundenID(int accId){
 		MySqlCommand cmd = new MySqlCommand($"SELECT * FROM Buchungen WHERE Kunden_ID = {accId}",con);
 		MySqlDataReader pref = cmd.ExecuteReader();

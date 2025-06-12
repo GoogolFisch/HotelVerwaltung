@@ -2,12 +2,15 @@ var roomTypes = new Map();
 const ONE_DAY = 1000 * 60 * 60 * 24;
 
 function room_update(roomTyp,val){
+	// get room div
 	let shwCnt = document.getElementById("shw-"+roomTyp);
 	let cnt = Math.floor(shwCnt.text - 0);
 	cnt += val;
+	// limit
 	if(cnt < 0)cnt = 0;
-	if(cnt > 5)cnt = 5; // this is an limit I choose
+	if(cnt > 6)cnt = 6; // this is an limit I choose
 	shwCnt.text = cnt + "";
+	// store
 	shwCnt = document.getElementById("snd-"+roomTyp);
 	shwCnt.value = cnt;
 	
@@ -24,20 +27,25 @@ function days_between(date1, date2) {
 	return Math.round(differenceMs / ONE_DAY);
 }
 function getISODate(time){
+	// IDK, I want it short, to convert stuff into the ISO Date format
 	let tt = new Date(time);
 	return tt.toISOString().slice(0,10);
 }
 
 function total_update(){
+	// get times
 	let timeStart = document.getElementById("from");
 	let timeEnd = document.getElementById("till");
 	//timeStart.min = getISODate(Date.now() + ONE_DAY);
+	// set auto limit
 	timeEnd.min = getISODate(Date.parse(timeStart.value) + ONE_DAY);
 	let dayCount = days_between(timeStart.value,timeEnd.value);
+	// don't make a NaN
 	if(dayCount === undefined)
 		dayCount = 1;
 	if(isNaN(dayCount))
 		dayCount = 1;
+	// count stuff up
 	let roomKeys = roomTypes.keys().toArray();
 	let shwCnt;
 	let cost = 0;
@@ -45,6 +53,7 @@ function total_update(){
 		shwCnt = document.getElementById("shw-"+roomKeys[ov]);
 		cost += (shwCnt.text - 0) * roomTypes.get(roomKeys[ov]);
 	}
+	// store into costs
 	shwCnt = document.getElementById("costing");
 	shwCnt.innerHTML = "Kostet: $" + cost * dayCount;
 }

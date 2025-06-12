@@ -5,6 +5,7 @@ public struct BookingInfo {
 	public DateTime bookingStart;
 	public DateTime bookingEnd;
 
+	// just store this stuff here to use later
 	public BookingInfo(int bid,int kid,DateTime bdate,DateTime bstart,DateTime bend){
 		bookingId = bid;
 		kundenId = kid;

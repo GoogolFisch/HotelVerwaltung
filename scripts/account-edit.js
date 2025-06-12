@@ -1,17 +1,21 @@
 var accInfo,innerData;
 
 function accountStartEdit(){
+	// get info from a div?
 	accInfo = document.getElementById("account");
 	innerData = accInfo.innerHTML;
+	// doing string maipulation to get string data
 	let dat = innerData.split("<br>");
 	let email = dat[1].split(": ")[1];
 	let names = dat[0].split(" ");
 	let firstName = names[1];
 	let lastName = names[2];
 	let birth = dat[2].split(": ")[1].split(".");
+	// convert int other format
 	birth.reverse();
 	birth = birth.join("-");
 	console.log(firstName + " " + lastName + "\n" + email + " " + birth);
+	// insert as standert values
 	accInfo.innerHTML = `<form method="post">
 		<label for="fname">Vorname:</label>
 		<input type="text" id="fname" name="fname" value="${firstName}" required></input><br>
@@ -34,9 +38,11 @@ function accountStartEdit(){
 function accountDeletionStart(){
 	accInfo = document.getElementById("account");
 	innerData = accInfo.innerHTML;
+	// get email from the div
 	let dat = innerData.split("<br>");
 	let email = dat[1].split(": ")[1];
 	let startDel = document.getElementById("deletionForm");
+	// create a form, which ask the password.
 	startDel.innerHTML = `<form method="post" action="${window.location.pathname}/delete-account">
 		<!--<label for="mail">E-Mail:</label>-->
 		<input type="hidden" id="mail" name="mail" value="${email}"></input><br>
@@ -49,14 +55,9 @@ function accountDeletionStart(){
 		<button onclick=\"document.getElementById('deletionForm').innerHTML = '';\">Abbrechen!</button>`;
 }
 
-function accountCancelEdit(){
-	accInfo.innerHTML = innerData;
-
-	//window.location.reload();
-}
-
 
 function cancelBooking(booking){
+	// ask if to cancel
 	if(!window.confirm("Buchung stornieren?"))
 		return;
 	window.location.href += "/storno-" + booking;
