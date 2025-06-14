@@ -2,11 +2,13 @@
 public struct RoomInfos{
 	public string typeName;
 	public decimal cost;
+	public int numBed;
 	public string picturePath;
-	public RoomInfos(string typ,decimal cost){
+	public RoomInfos(string typ,decimal cost,int numBed){
 		this.typeName = typ;
 		this.cost = cost;
 		this.picturePath = $"./images/{typ}.jpeg";
+		this.numBed = numBed;
 	}
 	// make it easier to insert rooms in the "form"
 	public string ToHtml(){
@@ -14,9 +16,10 @@ public struct RoomInfos{
 			"<div class=\"flex-row\">" +
 			$"<img src=\"{picturePath}\">" +
 			"<div>" +
-			$"Typ:{typeName}<br>" +
+			$"Typ: {typeName}<br>" +
 			// I know $ 150.00 is not €, but who cares!
-			$"Kosten:{cost.ToString("C2")}<br>" +
+			$"Betten: {numBed}<br>" +
+			$"Kosten: {cost.ToString("C2")}<br>" +
 			"</div><div>" +
 			// adding events! moving them into an sub menu
 			/*$"<a class=\"big-select\" id=\"add-{typeName}\" onclick=\"room_update('{typeName}',1);\">+</a>" +
