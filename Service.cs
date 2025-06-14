@@ -220,7 +220,7 @@ public class Servicer{
 		var cmd = new MySqlCommand();
 		cmd.Connection = con;
 		// IDK XXX
-		cmd.CommandText = "SELECT RaumTyp,AVG(Kosten) FROM Raum GROUP BY RaumTyp";
+		cmd.CommandText = "SELECT RaumTyp,Kosten,AnzBetten FROM RaumTypen";
 		MySqlDataReader rdr = cmd.ExecuteReader();
 		roomTypes = new List<RoomInfos>();
 		// insert all rooms
@@ -228,7 +228,8 @@ public class Servicer{
 			//roomTypes.Add(rdr.GetString(0));
 			roomTypes.Add(new RoomInfos(
 					rdr.GetString(0),
-					rdr.GetDecimal(1)
+					rdr.GetDecimal(1),
+					rdr.GetInt32(2)
 					));
 		}
 		cmd.Dispose();

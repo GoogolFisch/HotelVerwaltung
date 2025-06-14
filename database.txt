@@ -1,0 +1,17 @@
+Kunden (
+	(PK) Kunden_ID, VorName, NachName, (U)eMail,
+	ErstellungsDatum, GeborenAm, password
+)
+
+Buchungen (
+	(PK) Buchungs_ID, Kunden_ID#, BuchungsDatum,
+	BuchungStart, BuchungEnde
+)
+
+ZimmerBuchung ( (PK) Buhcungs_ID#, (PK) Raum_ID# )
+
+Raum ( (PK) Raum_ID, RaumTyp#, ZimmerNum )
+
+RaumTyp ( (PK) RaumTyp, Kosten, AnzBetten )
+
+Bewertung( (PK) Kunden_ID#, Sterne, Nachricht )

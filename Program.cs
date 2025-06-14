@@ -71,10 +71,12 @@ public class Program{
 
 		// ensure table formats
 		service.EnsureTableFormat("Kunden","CREATE TABLE `Kunden` ( `Kunden_ID` int(11) NOT NULL AUTO_INCREMENT, `VorName` varchar(20) NOT NULL, `NachName` varchar(20) NOT NULL, `eMail` varchar(40) NOT NULL, `ErstellungsDatum` datetime NOT NULL, `GeborenAm` date NOT NULL, `password` char(64) NOT NULL, PRIMARY KEY (`Kunden_ID`), UNIQUE KEY `eMail` (`eMail`))");
-		service.EnsureTableFormat("Raum","CREATE TABLE `Raum` ( `Raum_ID` int(11) NOT NULL AUTO_INCREMENT, `Kosten` decimal(6,2) NOT NULL, `anzBetten` int(2) NOT NULL, `RaumTyp` varchar(2) NOT NULL, `ZimmerNum` int(11) NOT NULL, PRIMARY KEY (`Raum_ID`), CONSTRAINT `CONSTRAINT_1` CHECK (`Kosten` >= 50))");
+		service.EnsureTableFormat("Raum","CREATE TABLE `Raum` ( `Raum_ID` int(11) NOT NULL AUTO_INCREMENT, `RaumTyp` varchar(2) NOT NULL, `ZimmerNum` int(11) NOT NULL, PRIMARY KEY (`Raum_ID`), KEY `RaumTypenRefrence` (`RaumTyp`), CONSTRAINT `RaumTypenRefrence` FOREIGN KEY (`RaumTyp`) REFERENCES `RaumTypen` (`RaumTyp`))");
 		service.EnsureTableFormat("Buchungen","CREATE TABLE `Buchungen` ( `Buchungs_ID` int(11) NOT NULL AUTO_INCREMENT, `Kunden_ID` int(11) NOT NULL, `BuchungsDatum` datetime NOT NULL, `BuchungStart` date NOT NULL, `BuchungEnde` date NOT NULL, PRIMARY KEY (`Buchungs_ID`))");
 		service.EnsureTableFormat("ZimmerBuchung","CREATE TABLE `ZimmerBuchung` ( `Buchungs_ID` int(11) NOT NULL, `Raum_ID` int(11) NOT NULL, PRIMARY KEY (`Buchungs_ID`,`Raum_ID`), KEY `ReferenzAufRaum` (`Raum_ID`), CONSTRAINT `BuchungsDependence` FOREIGN KEY (`Buchungs_ID`) REFERENCES `Buchungen` (`Buchungs_ID`) ON DELETE CASCADE ON UPDATE NO ACTION, CONSTRAINT `ReferenzAufRaum` FOREIGN KEY (`Raum_ID`) REFERENCES `Raum` (`Raum_ID`) ON DELETE NO ACTION ON UPDATE NO ACTION)");
 		service.EnsureTableFormat("Bewertung","CREATE TABLE `Bewertung` ( `Kunden_ID` int(11) NOT NULL, `Sterne` int(1) NOT NULL, `Nachricht` text NOT NULL, PRIMARY KEY (`Kunden_ID`), CONSTRAINT `DeleteOnKundenDelete` FOREIGN KEY (`Kunden_ID`) REFERENCES `Kunden` (`Kunden_ID`) ON DELETE CASCADE ON UPDATE NO ACTION)");
+		service.EnsureTableFormat("RaumTypen","CREATE TABLE `RaumTypen` ( `RaumTyp` varchar(2) NOT NULL, `Kosten` decimal(6,2) NOT NULL, `AnzBetten` int(2) NOT NULL, PRIMARY KEY (`RaumTyp`))");
+		// adding extra XXX
 		// register everything!
 		// register funny logical stuff
 		service.server.Handles(str => (str == "/print" || str.StartsWith("/print/")),HandelHttpPrint);
@@ -434,7 +436,7 @@ public class Program{
 		// insert each room into each booking order
 		foreach(BookingInfo bkinf in bkInfos){
 			kosten = 0m;
-			cmd.CommandText = $"SELECT r.Kosten,r.anzBetten,r.RaumTyp,r.ZimmerNum FROM Raum r JOIN ZimmerBuchung zb ON r.Raum_ID = zb.Raum_ID WHERE zb.Buchungs_ID = {bkinf.bookingId}";
+			cmd.CommandText = $"SELECT rt.Kosten,rt.anzBetten,r.RaumTyp,r.ZimmerNum FROM Raum r JOIN ZimmerBuchung zb ON r.Raum_ID = zb.Raum_ID JOIN RaumTypen rt ON rt.RaumTyp = r.RaumTyp WHERE zb.Buchungs_ID = {bkinf.bookingId}";
 			pref = cmd.ExecuteReader();
 			int daySpan = (bkinf.bookingEnd - bkinf.bookingStart).Days + 1;
 			addLaterData = "<ul>";
