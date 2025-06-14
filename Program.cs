@@ -610,6 +610,7 @@ END_TRY_BOOK:
 		// cancelation notice
 		document += $"Das Buchen ist nur {CancelationTime} Tage vor dem eigentlichem Tag möglich<br>" +
 			$"Das Stornieren ist auch nur bis zu {CancelationTime} Tage vorher möglich, <br>" +
+			"Ihr Zimmer ist um 16:00 am Anreisetag verfügbar,<br>und um 10:00 am Abreisetag müssen Sie den Raum verlassen haben." +
 			"Stornieren können Sie auf Ihrer <a href=\"/login\">Account</a> Seite.";
 		document += Program.docEnd;
 		var bytes = Encoding.UTF8.GetBytes(document);
