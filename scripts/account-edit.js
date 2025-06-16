@@ -33,7 +33,7 @@ function accountStartEdit(){
 		<input type="password" id="n2pwd" name="n2pwd"></input><br>
 		<button>Veraender!</button>
 		</form>
-		<button onclick=\"accountCancelEdit()\">Abbrechen!</button>`;
+		<button onclick=\"accInfo.innerHTML = innerData;\">Abbrechen!</button>`;
 }
 function accountDeletionStart(){
 	accInfo = document.getElementById("account");
@@ -43,7 +43,12 @@ function accountDeletionStart(){
 	let email = dat[1].split(": ")[1];
 	let startDel = document.getElementById("deletionForm");
 	// create a form, which ask the password.
-	startDel.innerHTML = `<form method="post" action="${window.location.pathname}/delete-account">
+	let hrefStr = window.location.pathname;
+	if(hrefStr.includes("/storno-")){
+		hrefStr = hrefStr.slice(0,hrefStr.indexOf("/storno-"));
+	}
+	hrefStr += "/delete-account";
+	startDel.innerHTML = `<form method="post" action="${hrefStr}">
 		<!--<label for="mail">E-Mail:</label>-->
 		<input type="hidden" id="mail" name="mail" value="${email}"></input><br>
 		<label for="tpwd">Passwort zum löschen:</label>
@@ -60,6 +65,11 @@ function cancelBooking(booking){
 	// ask if to cancel
 	if(!window.confirm("Buchung stornieren?"))
 		return;
-	window.location.href += "/storno-" + booking;
+	let hrefStr = window.location.href;
+	if(hrefStr.includes("/storno-")){
+		hrefStr = hrefStr.slice(0,hrefStr.indexOf("/storno-"));
+	}
+	hrefStr += "/storno-" + booking;
 	console.log("Hello " + booking);
+	window.location.href = hrefStr;
 }
