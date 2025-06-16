@@ -33,7 +33,7 @@ function accountStartEdit(){
 		<input type="password" id="n2pwd" name="n2pwd"></input><br>
 		<button>Veraender!</button>
 		</form>
-		<button onclick=\"accountCancelEdit()\">Abbrechen!</button>`;
+		<button onclick=\"accInfo.innerHTML = innerData;\">Abbrechen!</button>`;
 }
 function accountDeletionStart(){
 	accInfo = document.getElementById("account");
